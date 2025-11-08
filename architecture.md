@@ -8,17 +8,17 @@ proyecto-api/
 │   │
 │   ├── models/
 │   │   ├── Usuario.js           # Modelo Usuario (POO)
-│   │   └── Producto.js          # Modelo Producto (POO)
+│   │   └── Nota.js          # Modelo Nota (POO)
 │   │
 │   ├── controllers/
 │   │   ├── authController.js    # Lógica autenticación
 │   │   ├── usuarioController.js # Lógica usuarios CRUD
-│   │   └── productoController.js# Lógica productos CRUD
+│   │   └── NotaController.js# Lógica Notas CRUD
 │   │
 │   ├── routes/
 │   │   ├── authRoutes.js        # Rutas /api/auth
 │   │   ├── usuarioRoutes.js     # Rutas /api/usuarios
-│   │   └── productoRoutes.js    # Rutas /api/productos
+│   │   └── NotaRoutes.js    # Rutas /api/Notas
 │   │
 │   ├── middlewares/
 │   │   ├── authMiddleware.js    # Validar JWT
@@ -40,8 +40,8 @@ proyecto-api/
 │   │   │   │   └── Register.jsx
 │   │   │   ├── Usuarios/
 │   │   │   │   └── UsuariosList.jsx
-│   │   │   └── Productos/
-│   │   │       └── ProductosList.jsx
+│   │   │   └── Notas/
+│   │   │       └── NotasList.jsx
 │   │   ├── services/
 │   │   │   └── api.js          # Axios config
 │   │   └── App.jsx
