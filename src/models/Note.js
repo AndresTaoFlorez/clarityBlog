@@ -1,29 +1,41 @@
-// backend/src/models/Note.js
 
-export class Note {
-  constructor(id, title, description, user_id, created_at, updated_at) {
-    this.id = id;
+
+class Note {
+  constructor(title, description, user_id) {
+    this.id = Note.#generateId();
     this.title = title;
     this.description = description;
     this.user_id = user_id;
-    this.created_at = created_at;
-    this.updated_at = updated_at;
-  }
+    this.creted_at = new Date();
+    this.updated_at = new Date();
+  };
 
-  // Método para obtener la nota en formato JSON
-  toJSON() {
-    return {
-      id: this.id,
-      title: this.title,
-      description: this.description,
-      user_id: this.user_id,
-      created_at: this.created_at,
-      updated_at: this.updated_at
-    };
-  }
+  updateTitle(newTitle) {
+    this.title = newTitle;
 
-  // Método para validar si la nota tiene datos completos
-  isValid() {
-    return this.title && this.user_id;
+  };
+
+  updateDescription(description) {
+    this.description = description;
+
+  };
+  static #generateId() {
+    const id = Math.floor(Math.random() * (110 - 2 + 1)) + 1;
+    return id;
   }
 }
+
+
+
+const note1 = new Note(
+  "",
+  "",
+  1231
+);
+console.log(note1);
+
+note1.updateTitle("kkkk");
+console.log(note1);
+
+note1.updateDescription("day");
+console.log(note1);
