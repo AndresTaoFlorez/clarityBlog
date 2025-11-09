@@ -4,10 +4,11 @@
  * @param {Date} date - Date object in UTC.
  * @returns {string} Date formatted to Bogotá local time.
  */
+//export
 export function formatDateToBogota(date) {
     if (!(date instanceof Date) || isNaN(date)) {
         return 'Invalid date'
-    }
+    };
 
     return date.toLocaleString('es-CO', {
         timeZone: 'America/Bogota',
