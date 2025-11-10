@@ -2,7 +2,7 @@
 import { formatDateToBogota } from "../shared/utils/formatdate.js"
 import { UserRole } from "./value-objects/UserRole.js";
 
-class User {
+export class User {
     /**
      * 
      * @param {Object} args - de la clase
@@ -62,23 +62,23 @@ class User {
 
 
 
-// 1. Definicion del objecto que vamos a usar para crear la instancia de la clase User
-const user1 = {
-    name: "pablo",
-    email: "pablo@gmail.com",
-    password: "password123",
-    role: "basic"
-}
+// // 1. Definicion del objecto que vamos a usar para crear la instancia de la clase User
+// const user1 = {
+//     name: "pablo",
+//     email: "pablo@gmail.com",
+//     password: "password123",
+//     role: "basic"
+// }
 
-// 2. Creamos nueva instancia de la clase User
-const newUser1 = new User(user1)
+// // 2. Creamos nueva instancia de la clase User
+// const newUser1 = new User(user1)
 
-// 3. Mostrar el resultado de la instancia en pantalla
-console.log(newUser1)
+// // 3. Mostrar el resultado de la instancia en pantalla
+// console.log(newUser1)
 
+// 3. Validar role antes de actualizar 
+// const newRole = UserRole.isValid("admin") ? "admin" : ""
 
-const newRole = UserRole.isValid("admin") ? "admin" : ""
+// newUser1.updateRole(newRole)
 
-newUser1.updateRole(newRole)
-
-console.log(newUser1)
+// console.log(newUser1)
