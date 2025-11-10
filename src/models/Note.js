@@ -1,14 +1,14 @@
 import { formatDateToBogota } from "../shared/utils/formatdate.js"
 
 class Note {
-	constructor(title, description, user_id) {
+	constructor({ title, description, user_id }) {
 		this.id = Note.#generateId();
 		this.title = title;
 		this.description = description;
 		this.user_id = user_id;
 		this.creted_at = new Date();
 		this.updated_at = new Date();
-		this.fotmate_created_at = formatDateToBogota(this.creted_at);
+		this.formate_created_at = formatDateToBogota(this.creted_at);
 		this.formate_update_at = formatDateToBogota(this.updated_at);
 	};
 

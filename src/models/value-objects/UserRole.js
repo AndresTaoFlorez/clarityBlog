@@ -1,17 +1,16 @@
 
 export class UserRole {
 
-    //variables
-
     static VALID_ROLES = {
         ADMIN: "admin",
         BASIC: "basic"
     }
+
     constructor(role) {
         if (!UserRole.isValid(role)) {
-            throw new Error(`invalid role. Valid: ${Object.values(UserRole.VALID_ROLES).join(', ')}`)
-
+            throw new Error(`The value ${role} is invalid. Valid: ${Object.values(UserRole.VALID_ROLES).join(', ')}`)
         }
+
         this.role = role
     }
     // para validar los string
