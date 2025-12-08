@@ -1,4 +1,5 @@
 // backend/src/models/User.js
+<<<<<<< HEAD
 import { formatDateToBogota } from "../shared/utils/formatdate.js"
 import { UserRole } from "./value-objects/UserRole.js";
 
@@ -82,3 +83,86 @@ export class User {
 // newUser1.updateRole(newRole)
 
 // console.log(newUser1)
+=======
+// Modelo de Usuario que mapea entre Supabase (users) y Frontend
+
+export class User {
+  constructor(data) {
+    // Mapear desde DB (Supabase usa: name, email, password, role)
+    // Frontend espera: nombre, correo, password, rol
+    this.id = data.id || null;
+    this.nombre = data.nombre || data.name || '';
+    this.correo = data.correo || data.email || '';
+    this.password = data.password || '';
+    this.rol = data.rol || data.role || 'user';
+    this.bio = data.bio || data.biography || '';
+    this.created_at = data.created_at || data.createdAt || new Date().toISOString();
+    this.updated_at = data.updated_at || data.updatedAt || new Date().toISOString();
+  }
+
+  // Método para obtener el usuario en formato para el FRONTEND
+  // Frontend espera: _id, nombre, correo, rol, bio, createdAt, updatedAt
+  toJSON() {
+    return {
+      _id: this.id,
+      nombre: this.nombre,
+      correo: this.correo,
+      rol: this.rol,
+      bio: this.bio,
+      createdAt: this.created_at,
+      updatedAt: this.updated_at
+    };
+  }
+
+  // Método para preparar datos para SUPABASE (tabla users)
+  // Supabase usa: name, email, password, role
+  toDatabase() {
+    return {
+      name: this.nombre,
+      email: this.correo,
+      password: this.password,
+      role: this.rol,
+      updated_at: new Date().toISOString()
+    };
+  }
+
+  // Método para preparar datos de inserción en Supabase
+  toInsert() {
+    return {
+      name: this.nombre,
+      email: this.correo,
+      password: this.password,
+      role: this.rol || 'user'
+    };
+  }
+
+  // Validación del modelo
+  isValid() {
+    return this.nombre &&
+           this.correo &&
+           this.password &&
+           this.nombre.trim().length >= 3 &&
+           this.password.length >= 6 &&
+           this.isValidEmail();
+  }
+
+  isValidEmail() {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return this.correo && emailRegex.test(this.correo);
+  }
+
+  // Mapear desde resultado de Supabase a modelo User
+  static fromDatabase(dbUser, dbDescription = null) {
+    return new User({
+      id: dbUser.id,
+      name: dbUser.name,
+      email: dbUser.email,
+      password: dbUser.password,
+      role: dbUser.role,
+      biography: dbDescription?.biography || '',
+      created_at: dbUser.created_at,
+      updated_at: dbUser.updated_at
+    });
+  }
+}
+>>>>>>> bbbea50 (Nuevos cambios sobre el backend)

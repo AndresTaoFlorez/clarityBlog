@@ -1,0 +1,141 @@
+{
+  "schema": "healthblog",
+  "tables": {
+    "users": {
+      "columns": {
+        "id": {
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()",
+          "primary_key": true
+        },
+        "name": {
+          "type": "character varying",
+          "nullable": false
+        },
+        "email": {
+          "type": "character varying",
+          "nullable": false,
+          "unique": true
+        },
+        "password": {
+          "type": "character varying",
+          "nullable": false
+        },
+        "role": {
+          "type": "character varying",
+          "nullable": true,
+          "default": "user"
+        },
+        "created_at": {
+          "type": "timestamp with time zone",
+          "nullable": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "type": "timestamp with time zone",
+          "nullable": true,
+          "default": "now()"
+        }
+      }
+    },
+    "userdescriptions": {
+      "columns": {
+        "id": {
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()",
+          "primary_key": true
+        },
+        "user_id": {
+          "type": "uuid",
+          "nullable": false,
+          "foreign_key": "healthblog.users(id)"
+        },
+        "biography": {
+          "type": "text",
+          "nullable": true
+        }
+      }
+    },
+    "articles": {
+      "columns": {
+        "id": {
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()",
+          "primary_key": true
+        },
+        "title": {
+          "type": "character varying",
+          "nullable": false
+        },
+        "description": {
+          "type": "text",
+          "nullable": true
+        },
+        "user_id": {
+          "type": "uuid",
+          "nullable": false,
+          "foreign_key": "healthblog.users(id)"
+        },
+        "created_at": {
+          "type": "timestamp with time zone",
+          "nullable": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "type": "timestamp with time zone",
+          "nullable": true,
+          "default": "now()"
+        }
+      }
+    },
+    "comments": {
+      "columns": {
+        "id": {
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()",
+          "primary_key": true
+        },
+        "comment": {
+          "type": "text",
+          "nullable": false
+        },
+        "user_id": {
+          "type": "uuid",
+          "nullable": false,
+          "foreign_key": "healthblog.users(id)"
+        },
+        "article_id": {
+          "type": "uuid",
+          "nullable": false,
+          "foreign_key": "healthblog.articles(id)"
+        },
+        "created_at": {
+          "type": "timestamp with time zone",
+          "nullable": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "type": "timestamp with time zone",
+          "nullable": true,
+          "default": "now()"
+        }
+      }
+    }
+  },
+  "indexes": [
+    "idx_userdescriptions_user_id ON healthblog.userdescriptions(user_id)",
+    "idx_articles_user_id ON healthblog.articles(user_id)",
+    "idx_comments_user_id ON healthblog.comments(user_id)",
+    "idx_comments_article_id ON healthblog.comments(article_id)",
+    "idx_users_email ON healthblog.users(email)"
+  ],
+  "triggers": [
+    "update_users_updated_at",
+    "update_articles_updated_at", 
+    "update_comments_updated_at"
+  ]
+}
