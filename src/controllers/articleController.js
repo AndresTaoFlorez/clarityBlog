@@ -59,7 +59,9 @@ export class ArticleController {
       }
 
       // Obtener comentarios de la nota
-      const comments = await CommentService.findByArticleId(req.params.id);
+      const rawId = req.params.id;
+      const normalizedId = typeof rawId === 'object' ? (rawId.id || rawId._id || rawId.articleId || rawId.toString?.()) : rawId;
+      const comments = await CommentService.findByArticleId(normalizedId);
 
       const noteData = note.toJSON();
       noteData.comentarios = comments.map(comment => comment.toJSON());

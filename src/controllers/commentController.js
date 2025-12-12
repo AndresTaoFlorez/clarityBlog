@@ -29,14 +29,37 @@ export class CommentController {
   // Obtener comentarios de un artículo
   static async getCommentsByArticle(req, res, next) {
     try {
-      const { articleId } = req.params;
+      const { articleId: rawArticleId } = req.params;
       const { limit = 10, before, after } = req.query;
+
+      // Forzar logs aquí para ver valor real que llega de Express
+      console.log('DEBUG params typeof:', typeof req.params.articleId, 'value:', req.params.articleId);
+      console.log('DEBUG route params object:', req.params);
+
+      if (process.env.NODE_ENV !== 'production') {
+        console.debug('[CommentController.getCommentsByArticle] params:', req.params, 'query:', req.query);
+      }
+
+      // Normalizar articleId en caso de recibir un objeto en lugar de string
+      let articleId = rawArticleId;
+      if (rawArticleId && typeof rawArticleId === 'object') {
+        articleId = rawArticleId.id || rawArticleId._id || rawArticleId.articleId || rawArticleId.toString?.();
+      }
+
+      const articleIdStr = String(articleId);
+      const uuidLike = /^[0-9a-fA-F-]{36}$/;
+      if (!articleIdStr || articleIdStr === '[object Object]' || !uuidLike.test(articleIdStr)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Parámetro articleId inválido. Debe ser un UUID',
+        });
+      }
 
       // Validaciones básicas
       const pageSize = Math.min(parseInt(limit) || 10, 50); // máximo 50
 
-      const comments = await CommentService.findByArticleIdPaginated({
-        articleId,
+      const comments = await CommentService.findByArticleId({
+        articleId: articleIdStr,
         limit: pageSize,
         before,   // ISO string o undefined
         after,    // ISO string o undefined

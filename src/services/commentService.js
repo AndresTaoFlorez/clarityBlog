@@ -6,9 +6,7 @@ export class CommentService {
   // Crear comentario
   static async create(commentData) {
     try {
-      const comment = new Comment.create(commentData);
-
-      console.log(comment);
+      const comment = Comment.create(commentData);
       
       if (!comment.isValid()) {
         throw new Error(`Datos de comentario inválidos.`);
@@ -62,19 +60,53 @@ export class CommentService {
   }
 
   // Obtener comentarios de un artículo
-  static async findByArticleId(articleId) {
+  static async findByArticleId(params) {
     try {
-      const { data: commentsData, error } = await db
+      // Backward compatibility: accept either a string (articleId) or an options object
+      let articleId;
+      let limit = 10;
+      let before;
+      let after;
+
+      if (typeof params === 'string') {
+        articleId = params;
+      } else if (params && typeof params === 'object') {
+        ({ articleId, limit = 10, before, after } = params);
+      }
+
+      // Normalizar si articleId llegó como objeto
+      if (articleId && typeof articleId === 'object') {
+        articleId = articleId.id || articleId._id || articleId.articleId || null;
+      }
+
+      // Validación básica del articleId
+      if (process.env.NODE_ENV !== 'production') {
+        console.debug('[CommentService.findByArticleId] articleId typeof:', typeof articleId, 'value:', articleId);
+      }
+      if (!articleId || typeof articleId !== 'string' || articleId === '[object Object]') {
+        throw new Error('articleId inválido: se esperaba una cadena UUID');
+      }
+
+      const pageSize = Math.min(parseInt(limit) || 10, 50);
+
+      // Construir consulta con filtros opcionales
+      let query = db
         .from('comments')
         .select('*')
-        .eq('article_id', articleId)
-        .order('created_at', { ascending: true });
+        .eq('article_id', articleId);
+
+      if (before) query = query.lt('created_at', before);
+      if (after) query = query.gt('created_at', after);
+
+      const { data: commentsData, error } = await query
+        .order('created_at', { ascending: true })
+        .limit(pageSize);
 
       if (error) throw error;
 
       // Obtener nombres de autores para cada comentario
       const commentsWithAuthors = await Promise.all(
-        commentsData.map(async (comment) => {
+        (commentsData || []).map(async (comment) => {
           const { data: userData } = await db
             .from('users')
             .select('name')
