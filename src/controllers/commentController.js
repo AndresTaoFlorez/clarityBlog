@@ -30,7 +30,7 @@ export class CommentController {
   static async getCommentsByArticle(req, res, next) {
     try {
       const { articleId: rawArticleId } = req.params;
-      const { limit = 10, before, after } = req.query;
+      const { limit: rawLimit = 10, before: rawBefore, after: rawAfter } = req.query;
 
       // Forzar logs aquí para ver valor real que llega de Express
       console.log('DEBUG params typeof:', typeof req.params.articleId, 'value:', req.params.articleId);
@@ -55,15 +55,26 @@ export class CommentController {
         });
       }
 
-      // Validaciones básicas
-      const pageSize = Math.min(parseInt(limit) || 10, 50); // máximo 50
+      // Normalización robusta de query params
+      const pickFirst = (v) => Array.isArray(v) ? v[0] : v;
+      const toNumber = (v, def) => {
+        const n = Number(pickFirst(v));
+        return Number.isFinite(n) ? n : def;
+      };
+      const toStringOpt = (v) => {
+        const val = pickFirst(v);
+        return typeof val === 'string' ? val : undefined;
+      };
 
-      const comments = await CommentService.findByArticleId({
-        articleId: articleIdStr,
-        limit: pageSize,
-        before,   // ISO string o undefined
-        after,    // ISO string o undefined
-      });
+      let pageSize = toNumber(rawLimit, 10);
+      pageSize = Math.min(Math.max(1, pageSize), 50); // rango 1..50
+      const before = toStringOpt(rawBefore);
+      const after = toStringOpt(rawAfter);
+
+      const comments = await CommentService.findByArticleId(
+        articleIdStr,
+        { limit: pageSize, before, after }
+      );
 
       // Obtener el siguiente cursor si hay más resultados
       const hasMore = comments.length === pageSize;

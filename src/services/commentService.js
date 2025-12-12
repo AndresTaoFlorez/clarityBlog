@@ -60,47 +60,36 @@ export class CommentService {
   }
 
   // Obtener comentarios de un artículo
-  static async findByArticleId(params) {
+  static async findByArticleId(articleId, options = {}) {
     try {
-      // Backward compatibility: accept either a string (articleId) or an options object
-      let articleId;
-      let limit = 10;
-      let before;
-      let after;
-
-      if (typeof params === 'string') {
-        articleId = params;
-      } else if (params && typeof params === 'object') {
-        ({ articleId, limit = 10, before, after } = params);
-      }
-
-      // Normalizar si articleId llegó como objeto
-      if (articleId && typeof articleId === 'object') {
-        articleId = articleId.id || articleId._id || articleId.articleId || null;
-      }
-
-      // Validación básica del articleId
+      // Normalización estricta: solo aceptar string aquí
+      const normalizedId = String(articleId);
       if (process.env.NODE_ENV !== 'production') {
         console.debug('[CommentService.findByArticleId] articleId typeof:', typeof articleId, 'value:', articleId);
       }
-      if (!articleId || typeof articleId !== 'string' || articleId === '[object Object]') {
-        throw new Error('articleId inválido: se esperaba una cadena UUID');
+      const uuidLike = /^[0-9a-fA-F-]{36}$/;
+      if (!normalizedId || normalizedId === '[object Object]' || !uuidLike.test(normalizedId)) {
+        const err = new Error('Parámetro articleId inválido. Debe ser un UUID');
+        err.statusCode = 400;
+        throw err;
       }
 
-      const pageSize = Math.min(parseInt(limit) || 10, 50);
+      const limit = Math.min(Number(options.limit) || 10, 50);
+      const before = options.before;
+      const after = options.after;
 
       // Construir consulta con filtros opcionales
       let query = db
         .from('comments')
         .select('*')
-        .eq('article_id', articleId);
+        .eq('article_id', normalizedId);
 
       if (before) query = query.lt('created_at', before);
       if (after) query = query.gt('created_at', after);
 
       const { data: commentsData, error } = await query
         .order('created_at', { ascending: true })
-        .limit(pageSize);
+        .limit(limit);
 
       if (error) throw error;
 
