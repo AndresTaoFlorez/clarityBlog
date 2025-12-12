@@ -30,7 +30,7 @@ export class CommentController {
   static async getCommentsByArticle(req, res, next) {
     try {
       const { articleId: rawArticleId } = req.params;
-      const { limit: rawLimit = 10, before: rawBefore, after: rawAfter } = req.query;
+      const { limit: rawLimit = 5, before: rawBefore, after: rawAfter } = req.query;
 
       // Forzar logs aquí para ver valor real que llega de Express
       console.log('DEBUG params typeof:', typeof req.params.articleId, 'value:', req.params.articleId);
@@ -71,25 +71,23 @@ export class CommentController {
       const before = toStringOpt(rawBefore);
       const after = toStringOpt(rawAfter);
 
-      const comments = await CommentService.findByArticleId(
+      const { items, total } = await CommentService.findByArticleId(
         articleIdStr,
         { limit: pageSize, before, after }
       );
 
-      // Obtener el siguiente cursor si hay más resultados
-      const hasMore = comments.length === pageSize;
-      const lastComment = comments[comments.length - 1];
+      const hasMore = items.length === pageSize;
+      const lastComment = items[items.length - 1];
 
       res.status(200).json({
         success: true,
-        data: comments.map(c => c.toJSON()),
+        data: items.map(c => c.toJSON()),
         pagination: {
           limit: pageSize,
           hasMore,
-          // Si queremos cargar más antiguos → pasamos la fecha del último comentario
+          total,
           nextCursor: hasMore ? lastComment.created_at : null,
-          // Opcional: para ir hacia arriba (más nuevos)
-          previousCursor: comments[0]?.created_at || null,
+          previousCursor: items[0]?.created_at || null,
         }
       });
     } catch (error) {
@@ -131,7 +129,7 @@ export class CommentController {
       }
 
       // Verificar que el usuario sea el propietario
-      if (comment.usuario !== req.user.id && req.user.rol !== 'admin') {
+      if (comment.userId !== req.user.id && req.user.rol !== 'admin') {
         return res.status(403).json({
           success: false,
           message: 'No tienes permiso para actualizar este comentario'
@@ -163,7 +161,7 @@ export class CommentController {
       }
 
       // Verificar que el usuario sea el propietario o admin
-      if (comment.usuario !== req.user.id && req.user.rol !== 'admin') {
+      if (comment.userId !== req.user.id && req.user.rol !== 'admin') {
         return res.status(403).json({
           success: false,
           message: 'No tienes permiso para eliminar este comentario'

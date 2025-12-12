@@ -13,6 +13,8 @@ export class Comment {
     notaId = null,
     created_at = new Date().toISOString(),
     updated_at = new Date().toISOString(),
+    author_name = '',
+    author_avatar = '😊',
   }) {
     this.id = id;
     this.contenido = contenido.trim();

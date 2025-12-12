@@ -2,6 +2,20 @@
 import { UserService } from '../services/userService.js';
 
 export class UserController {
+  // Crear usuario (solo admin)
+  static async create(req, res, next) {
+    try {
+      const user = await UserService.create(req.body);
+      res.status(201).json({
+        success: true,
+        message: 'Usuario creado exitosamente',
+        data: user.toJSON()
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   // Obtener todos los usuarios con paginación
   static async getAll(req, res, next) {
     try {

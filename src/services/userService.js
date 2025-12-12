@@ -145,6 +145,7 @@ export class UserService {
       if (userData.nombre) updateData.name = userData.nombre;
       if (userData.correo) updateData.email = userData.correo;
       if (userData.rol) updateData.role = userData.rol;
+      if (userData.avatar) updateData.avatar = userData.avatar;
 
       // Si se actualiza la contraseña, hashearla
       if (userData.password) {

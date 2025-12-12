@@ -20,7 +20,14 @@ router.get('/profile', authenticate, UserController.getProfile);
 router.get('/search', UserController.search);
 
 /**
- * @route   GET /api/usuarios
+ * @route   POST /api/users
+ * @desc    Crear usuario
+ * @access  Private (solo admin)
+ */
+router.post('/', authenticate, authorizeAdmin, UserController.create);
+
+/**
+ * @route   GET /api/users
  * @desc    Obtener todos los usuarios con paginación
  * @access  Public
  */

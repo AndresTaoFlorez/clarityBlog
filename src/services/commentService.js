@@ -41,7 +41,8 @@ export class CommentService {
         .from('comments')
         .select('*')
         .eq('id', id)
-        .single();
+        .limit(1)
+        .maybeSingle();
 
       if (error) throw error;
       if (!commentData) return null;
@@ -78,6 +79,13 @@ export class CommentService {
       const before = options.before;
       const after = options.after;
 
+      // Total de comentarios para el artículo
+      const { count: totalCount, error: countError } = await db
+        .from('comments')
+        .select('*', { count: 'exact', head: true })
+        .eq('article_id', normalizedId);
+      if (countError) throw countError;
+
       // Construir consulta con filtros opcionales
       let query = db
         .from('comments')
@@ -106,7 +114,7 @@ export class CommentService {
         })
       );
 
-      return commentsWithAuthors;
+      return { items: commentsWithAuthors, total: totalCount || 0 };
     } catch (error) {
       throw new Error(`Error al obtener comentarios: ${error.message}`);
     }

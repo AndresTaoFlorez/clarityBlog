@@ -27,7 +27,7 @@ export class ArticleController {
   static async getAll(req, res, next) {
     try {
       const page = parseInt(req.query.page) || 1;
-      const limit = parseInt(req.query.limit) || 10;
+      const limit = parseInt(req.query.limit) || 5;
       const userId = req.query.userId;
 
       const result = await ArticleService.findAll({ page, limit, userId });
@@ -38,7 +38,11 @@ export class ArticleController {
         pagination: {
           total: result.total,
           page: result.page,
-          pages: result.pages
+          pages: result.pages,
+          limit,
+          hasMore: result.page < result.pages,
+          nextPage: result.page < result.pages ? result.page + 1 : null,
+          prevPage: result.page > 1 ? result.page - 1 : null,
         }
       });
     } catch (error) {

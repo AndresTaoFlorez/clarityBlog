@@ -24,11 +24,11 @@ export class ArticleService {
       // Obtener nombre del autor
       const { data: userData } = await db
         .from('users')
-        .select('name')
+        .select('name, avatar')
         .eq('id', newArticle.user_id)
         .single();
 
-      return Note.fromDatabase(newArticle, userData?.name || '');
+      return Note.fromDatabase({ ...newArticle, author_avatar: userData?.avatar }, userData?.name || '');
     } catch (error) {
       throw new Error(`Error al crear nota: ${error.message}`);
     }
@@ -49,18 +49,18 @@ export class ArticleService {
       // Obtener nombre del autor
       const { data: userData } = await db
         .from('users')
-        .select('name')
+        .select('name, avatar')
         .eq('id', articleData.user_id)
         .single();
 
-      return Note.fromDatabase(articleData, userData?.name || '');
+      return Note.fromDatabase({ ...articleData, author_avatar: userData?.avatar }, userData?.name || '');
     } catch (error) {
       throw new Error(`Error al buscar nota: ${error.message}`);
     }
   }
 
   // Obtener todos los artículos/notas con paginación y filtros
-  static async findAll({ page = 1, limit = 10, userId } = {}) {
+  static async findAll({ page = 1, limit = 5, userId, category } = {}) {
     try {
       const offset = (page - 1) * limit;
 
@@ -71,6 +71,9 @@ export class ArticleService {
       // Aplicar filtros
       if (userId) {
         query = query.eq('user_id', userId);
+      }
+      if (category) {
+        query = query.eq('category', category);
       }
 
       query = query

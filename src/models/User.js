@@ -3,13 +3,14 @@
 
 export class User {
   constructor(data) {
-    // Mapear desde DB (Supabase usa: name, email, password, role)
-    // Frontend espera: nombre, correo, password, rol
+    // Mapear desde DB (Supabase usa: name, email, password, role, avatar)
+    // Frontend espera: nombre, correo, password, rol, avatar
     this.id = data.id || null;
     this.nombre = data.nombre || data.name || '';
     this.correo = data.correo || data.email || '';
     this.password = data.password || '';
     this.rol = data.rol || data.role || 'user';
+    this.avatar = data.avatar || '😊';
     this.bio = data.bio || data.biography || '';
     this.created_at = data.created_at || data.createdAt || new Date().toISOString();
     this.updated_at = data.updated_at || data.updatedAt || new Date().toISOString();
@@ -23,6 +24,7 @@ export class User {
       nombre: this.nombre,
       correo: this.correo,
       rol: this.rol,
+      avatar: this.avatar,
       bio: this.bio,
       createdAt: this.created_at,
       updatedAt: this.updated_at
@@ -37,6 +39,7 @@ export class User {
       email: this.correo,
       password: this.password,
       role: this.rol,
+      avatar: this.avatar,
       updated_at: new Date().toISOString()
     };
   }
@@ -47,7 +50,8 @@ export class User {
       name: this.nombre,
       email: this.correo,
       password: this.password,
-      role: this.rol || 'user'
+      role: this.rol || 'user',
+      avatar: this.avatar || '😊'
     };
   }
 
@@ -74,6 +78,7 @@ export class User {
       email: dbUser.email,
       password: dbUser.password,
       role: dbUser.role,
+      avatar: dbUser.avatar,
       biography: dbDescription?.biography || '',
       created_at: dbUser.created_at,
       updated_at: dbUser.updated_at

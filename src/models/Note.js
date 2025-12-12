@@ -3,14 +3,15 @@
 
 export class Note {
   constructor(data) {
-    // Mapear desde DB (Supabase usa: title, description, user_id)
-    // Frontend espera: titulo, contenido, usuario, categoria
+    // Mapear desde DB (Supabase usa: title, description, user_id, category)
+    // Frontend espera: titulo, contenido, usuario, categoria, autor, avatar
     this.id = data.id || null;
     this.titulo = data.titulo || data.title || '';
     this.contenido = data.contenido || data.description || '';
-    this.categoria = data.categoria || 'personal';
+    this.categoria = data.categoria || data.category || 'general';
     this.usuario = data.usuario || data.user_id || null;
     this.autor = data.autor || data.author_name || '';
+    this.autor_avatar = data.autor_avatar || data.author_avatar || data.avatar || '😊';
     this.created_at = data.created_at || data.createdAt || new Date().toISOString();
     this.updated_at = data.updated_at || data.updatedAt || new Date().toISOString();
   }
@@ -25,6 +26,7 @@ export class Note {
       categoria: this.categoria,
       usuario: this.usuario,
       autor: this.autor,
+      avatar: this.autor_avatar,
       createdAt: this.created_at,
       updatedAt: this.updated_at
     };
