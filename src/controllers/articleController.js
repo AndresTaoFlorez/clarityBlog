@@ -1,8 +1,8 @@
 // backend/src/controllers/noteController.js
-import { NoteService } from '../services/noteService.js';
+import { ArticleService } from '../services/ArticleService.js';
 import { CommentService } from '../services/commentService.js';
 
-export class NoteController {
+export class ArticleController {
   // Crear nota/artículo
   static async create(req, res, next) {
     try {
@@ -11,7 +11,7 @@ export class NoteController {
         usuario: req.user.id
       };
 
-      const note = await NoteService.create(noteData);
+      const note = await ArticleService.create(noteData);
 
       res.status(201).json({
         success: true,
@@ -30,7 +30,7 @@ export class NoteController {
       const limit = parseInt(req.query.limit) || 10;
       const userId = req.query.userId;
 
-      const result = await NoteService.findAll({ page, limit, userId });
+      const result = await ArticleService.findAll({ page, limit, userId });
 
       res.status(200).json({
         success: true,
@@ -49,7 +49,7 @@ export class NoteController {
   // Obtener nota por ID con comentarios
   static async getById(req, res, next) {
     try {
-      const note = await NoteService.findById(req.params.id);
+      const note = await ArticleService.findById(req.params.id);
 
       if (!note) {
         return res.status(404).json({
@@ -76,7 +76,7 @@ export class NoteController {
   // Obtener notas por usuario
   static async getByUserId(req, res, next) {
     try {
-      const notes = await NoteService.findByUserId(req.params.userId);
+      const notes = await ArticleService.findByUserId(req.params.userId);
 
       res.status(200).json({
         success: true,
@@ -99,7 +99,7 @@ export class NoteController {
         });
       }
 
-      const notes = await NoteService.search(q);
+      const notes = await ArticleService.search(q);
 
       res.status(200).json({
         success: true,
@@ -113,7 +113,7 @@ export class NoteController {
   // Actualizar nota
   static async update(req, res, next) {
     try {
-      const note = await NoteService.findById(req.params.id);
+      const note = await ArticleService.findById(req.params.id);
 
       if (!note) {
         return res.status(404).json({
@@ -130,7 +130,7 @@ export class NoteController {
         });
       }
 
-      const updatedNote = await NoteService.update(req.params.id, req.body);
+      const updatedNote = await ArticleService.update(req.params.id, req.body);
 
       res.status(200).json({
         success: true,
@@ -145,7 +145,7 @@ export class NoteController {
   // Eliminar nota
   static async delete(req, res, next) {
     try {
-      const note = await NoteService.findById(req.params.id);
+      const note = await ArticleService.findById(req.params.id);
 
       if (!note) {
         return res.status(404).json({
@@ -162,7 +162,7 @@ export class NoteController {
         });
       }
 
-      await NoteService.delete(req.params.id);
+      await ArticleService.delete(req.params.id);
 
       res.status(200).json({
         success: true,

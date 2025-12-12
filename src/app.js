@@ -6,7 +6,7 @@ import morgan from 'morgan';
 
 import authRoutes from './routes/authRoutes.js';
 import userRoutes from './routes/userRoutes.js';
-import noteRoutes from './routes/noteRoutes.js';
+import articleRoutes from './routes/articleRoutes.js';
 import commentRoutes from './routes/commentRoutes.js';
 import { errorHandler } from './middlewares/errorHandler.js';
 
@@ -26,13 +26,13 @@ app.use(morgan('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Rutas - Usando nombres en español para compatibilidad con frontend
+// Routes
 app.use('/api/auth', authRoutes);
-app.use('/api/usuarios', userRoutes);  // Cambiado de /api/users a /api/usuarios
-app.use('/api/notas', noteRoutes);      // Cambiado de /api/notes a /api/notas
-app.use('/api/comentarios', commentRoutes);  // Nueva ruta para comentarios
+app.use('/api/users', userRoutes);
+app.use('/api/articles', articleRoutes);     
+app.use('/api/comments', commentRoutes);
 
-// Ruta de prueba
+// Testing routes
 app.get('/api/health', (req, res) => {
   res.json({
     status: 'OK',

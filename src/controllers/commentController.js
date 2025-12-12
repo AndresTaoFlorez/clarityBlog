@@ -5,13 +5,13 @@ export class CommentController {
   // Crear comentario
   static async create(req, res, next) {
     try {
-      const { notaId } = req.params;
+      const { articleId } = req.params;
       const { contenido } = req.body;
 
       const commentData = {
         contenido,
-        usuario: req.user.id,
-        notaId: notaId
+        userId: req.user.id,
+        notaId: articleId,
       };
 
       const comment = await CommentService.create(commentData);
@@ -29,13 +29,34 @@ export class CommentController {
   // Obtener comentarios de un artículo
   static async getCommentsByArticle(req, res, next) {
     try {
-      const { notaId } = req.params;
+      const { articleId } = req.params;
+      const { limit = 10, before, after } = req.query;
 
-      const comments = await CommentService.findByArticleId(notaId);
+      // Validaciones básicas
+      const pageSize = Math.min(parseInt(limit) || 10, 50); // máximo 50
+
+      const comments = await CommentService.findByArticleIdPaginated({
+        articleId,
+        limit: pageSize,
+        before,   // ISO string o undefined
+        after,    // ISO string o undefined
+      });
+
+      // Obtener el siguiente cursor si hay más resultados
+      const hasMore = comments.length === pageSize;
+      const lastComment = comments[comments.length - 1];
 
       res.status(200).json({
         success: true,
-        data: comments.map(comment => comment.toJSON())
+        data: comments.map(c => c.toJSON()),
+        pagination: {
+          limit: pageSize,
+          hasMore,
+          // Si queremos cargar más antiguos → pasamos la fecha del último comentario
+          nextCursor: hasMore ? lastComment.created_at : null,
+          // Opcional: para ir hacia arriba (más nuevos)
+          previousCursor: comments[0]?.created_at || null,
+        }
       });
     } catch (error) {
       next(error);

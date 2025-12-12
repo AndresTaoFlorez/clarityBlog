@@ -2,7 +2,7 @@
 import { db } from '../config/database.js';
 import { Note } from '../models/Note.js';
 
-export class NoteService {
+export class ArticleService {
   // Crear artículo/nota
   static async create(noteData) {
     try {

@@ -6,21 +6,21 @@ import { authenticate } from '../middlewares/authMiddleware.js';
 const router = express.Router();
 
 /**
- * @route   DELETE /api/comentarios/:id
+ * @route   DELETE /api/comments/:id
  * @desc    Eliminar comentario
  * @access  Private (solo el autor o admin)
  */
 router.delete('/:id', authenticate, CommentController.delete);
 
 /**
- * @route   PUT /api/comentarios/:id
+ * @route   PUT /api/comments/:id
  * @desc    Actualizar comentario
  * @access  Private (solo el autor o admin)
  */
 router.put('/:id', authenticate, CommentController.update);
 
 /**
- * @route   GET /api/comentarios/:id
+ * @route   GET /api/comments/:id
  * @desc    Obtener comentario por ID
  * @access  Public
  */

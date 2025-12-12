@@ -6,10 +6,12 @@ export class CommentService {
   // Crear comentario
   static async create(commentData) {
     try {
-      const comment = new Comment(commentData);
+      const comment = new Comment.create(commentData);
 
+      console.log(comment);
+      
       if (!comment.isValid()) {
-        throw new Error('Datos de comentario inválidos');
+        throw new Error(`Datos de comentario inválidos.`);
       }
 
       // Insertar en tabla 'comments' de Supabase
