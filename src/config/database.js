@@ -1,30 +1,60 @@
 // backend/src/config/database.js
-import { createClient } from '@supabase/supabase-js';
-import dotenv from 'dotenv';
+import { createClient } from "@supabase/supabase-js";
+import dotenv from "dotenv";
 
 dotenv.config();
 
-// Forzar las credenciales correctas para evitar problemas de cache
-const supabaseUrl = 'https://tziskwokcjhqljiuuunz.supabase.co';
-const supabaseServiceKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR6aXNrd29rY2pocWxqaXV1dW56Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NTE3MTA0MiwiZXhwIjoyMDgwNzQ3MDQyfQ.HMpAPK3lZlvgDdlFb-Rn2n20LL8935gMJC6M8rE4Fug';
+// Required credentials (using service_role key for full backend access)
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY;
 
 if (!supabaseUrl || !supabaseServiceKey) {
-  throw new Error('Faltan SUPABASE_URL y SUPABASE_SERVICE_KEY en el archivo .env');
+  throw new Error(
+    "Missing required environment variables: SUPABASE_URL and SUPABASE_SERVICE_KEY. Please check your .env file.",
+  );
 }
 
-// Configurar Supabase client con service_role key para acceso completo desde el backend
+// Main Supabase client configured with service_role key (ideal for backend with full privileges)
 export const supabase = createClient(supabaseUrl, supabaseServiceKey, {
   auth: {
     autoRefreshToken: false,
-    persistSession: false
-  }
+    persistSession: false,
+    detectSessionInUrl: false,
+  },
+  global: {
+    headers: {
+      // Optional: add custom headers if needed in the future
+    },
+  },
 });
 
-// Helper function para acceder a las tablas en el schema public
+// Wrapper that maintains your current syntax: db.from('table')...
+// But now exposes the full power of Supabase
 export const db = {
-  from: (table) => supabase.from(table)
+  // Keeps the syntax you already use throughout the code
+  from: (table) => supabase.from(table),
+
+  // Direct access to RPC functions (Postgres stored functions)
+  rpc: (functionName, params = {}) => supabase.rpc(functionName, params),
+
+  // Full auth management
+  auth: supabase.auth,
+
+  // Storage (for uploading images, avatars, article files, etc.)
+  storage: supabase.storage,
+
+  // Direct access to the full client (for advanced use cases)
+  client: supabase,
+
+  // Helpful quick methods for backend
+  signOut: () => supabase.auth.signOut(),
+
+  getSession: () => supabase.auth.getSession(),
+
+  getUser: () => supabase.auth.getUser(),
 };
 
-// Test de conexión deshabilitado para evitar errores al inicio
-// Se verificará la conexión cuando se use la API
-console.log('🔧 Cliente de Supabase configurado y listo para usar');
+// Confirmation message
+console.log("🔧 Supabase client (service_role) successfully configured");
+console.log("   URL:", supabaseUrl);
+console.log("   Full backend access enabled");

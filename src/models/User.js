@@ -4,30 +4,32 @@
 export class User {
   constructor(data) {
     // Mapear desde DB (Supabase usa: name, email, password, role, avatar)
-    // Frontend espera: nombre, correo, password, rol, avatar
+    // Frontend espera: name, email, password, rol, avatar
     this.id = data.id || null;
-    this.nombre = data.nombre || data.name || '';
-    this.correo = data.correo || data.email || '';
-    this.password = data.password || '';
-    this.rol = data.rol || data.role || 'user';
-    this.avatar = data.avatar || '😊';
-    this.bio = data.bio || data.biography || '';
-    this.created_at = data.created_at || data.createdAt || new Date().toISOString();
-    this.updated_at = data.updated_at || data.updatedAt || new Date().toISOString();
+    this.name = data.name || "";
+    this.email = data.email || "";
+    this.password = data.password || "";
+    this.role = data.role || "user";
+    this.avatar = data.avatar || "😊";
+    this.bio = data.bio || data.biography || "";
+    this.created_at =
+      data.created_at || data.createdAt || new Date().toISOString();
+    this.updated_at =
+      data.updated_at || data.updatedAt || new Date().toISOString();
   }
 
   // Método para obtener el usuario en formato para el FRONTEND
-  // Frontend espera: _id, nombre, correo, rol, bio, createdAt, updatedAt
+  // Frontend espera: _id, name, email, rol, bio, createdAt, updatedAt
   toJSON() {
     return {
       _id: this.id,
-      nombre: this.nombre,
-      correo: this.correo,
-      rol: this.rol,
+      name: this.name,
+      email: this.email,
+      role: this.role,
       avatar: this.avatar,
       bio: this.bio,
       createdAt: this.created_at,
-      updatedAt: this.updated_at
+      updatedAt: this.updated_at,
     };
   }
 
@@ -35,43 +37,46 @@ export class User {
   // Supabase usa: name, email, password, role
   toDatabase() {
     return {
-      name: this.nombre,
-      email: this.correo,
+      name: this.email,
+      email: this.name,
       password: this.password,
-      role: this.rol,
+      role: this.role,
       avatar: this.avatar,
-      updated_at: new Date().toISOString()
+      bio: this.bio,
+      updated_at: new Date().toISOString(),
     };
   }
 
   // Método para preparar datos de inserción en Supabase
   toInsert() {
     return {
-      name: this.nombre,
-      email: this.correo,
+      name: this.name,
+      email: this.email,
       password: this.password,
-      role: this.rol || 'user',
-      avatar: this.avatar || '😊'
+      role: this.role || "user",
+      avatar: this.avatar || "😊",
     };
   }
 
   // Validación del modelo
   isValid() {
-    return this.nombre &&
-           this.correo &&
-           this.password &&
-           this.nombre.trim().length >= 3 &&
-           this.password.length >= 6 &&
-           this.isValidEmail();
+    return (
+      this.name &&
+      this.email &&
+      this.password &&
+      this.name.trim().length >= 3 &&
+      this.password.length >= 6 &&
+      this.isValidEmail()
+    );
   }
 
   isValidEmail() {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return this.correo && emailRegex.test(this.correo);
+    return this.email && emailRegex.test(this.email);
   }
 
   // Mapear desde resultado de Supabase a modelo User
-  static fromDatabase(dbUser, dbDescription = null) {
+  static fromDatabase(dbUser) {
     return new User({
       id: dbUser.id,
       name: dbUser.name,
@@ -79,9 +84,13 @@ export class User {
       password: dbUser.password,
       role: dbUser.role,
       avatar: dbUser.avatar,
-      biography: dbDescription?.biography || '',
+      bio: dbUser.bio,
       created_at: dbUser.created_at,
-      updated_at: dbUser.updated_at
+      updated_at: dbUser.updated_at,
     });
+  }
+
+  static fromDatabaseList(dbUsers) {
+    return dbUsers.map((user) => User.fromDatabase(user));
   }
 }

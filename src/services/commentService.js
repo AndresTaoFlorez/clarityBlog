@@ -24,11 +24,11 @@ export class CommentService {
       // Obtener nombre del autor
       const { data: userData } = await db
         .from('users')
-        .select('name')
+        .select('name, avatar')
         .eq('id', newComment.user_id)
         .single();
 
-      return Comment.fromDatabase(newComment, userData?.name || '');
+      return Comment.fromDatabase(newComment, userData?.name || '', userData?.avatar || '😊');
     } catch (error) {
       throw new Error(`Error al crear comentario: ${error.message}`);
     }
@@ -50,11 +50,11 @@ export class CommentService {
       // Obtener nombre del autor
       const { data: userData } = await db
         .from('users')
-        .select('name')
+        .select('name, avatar')
         .eq('id', commentData.user_id)
         .single();
 
-      return Comment.fromDatabase(commentData, userData?.name || '');
+      return Comment.fromDatabase(commentData, userData?.name || '', userData?.avatar || '😊');
     } catch (error) {
       throw new Error(`Error al buscar comentario: ${error.message}`);
     }
@@ -96,7 +96,7 @@ export class CommentService {
       if (after) query = query.gt('created_at', after);
 
       const { data: commentsData, error } = await query
-        .order('created_at', { ascending: true })
+        .order('created_at', { ascending: false })
         .limit(limit);
 
       if (error) throw error;
@@ -106,11 +106,11 @@ export class CommentService {
         (commentsData || []).map(async (comment) => {
           const { data: userData } = await db
             .from('users')
-            .select('name')
+           .select('name, avatar')
             .eq('id', comment.user_id)
             .single();
 
-          return Comment.fromDatabase(comment, userData?.name || '');
+          return Comment.fromDatabase(comment, userData?.name || '', userData?.avatar || '😊');
         })
       );
 
@@ -151,7 +151,7 @@ export class CommentService {
     try {
       const updateData = {};
 
-      if (commentData.contenido) updateData.comment = commentData.contenido;
+      if (commentData.content) updateData.comment = commentData.content;
 
       updateData.updated_at = new Date().toISOString();
 
@@ -167,7 +167,7 @@ export class CommentService {
       // Obtener nombre del autor
       const { data: userData } = await db
         .from('users')
-        .select('name')
+        .select('name, avatar')
         .eq('id', updatedComment.user_id)
         .single();
 

@@ -1,40 +1,49 @@
 // backend/src/controllers/noteController.js
-import { ArticleService } from '../services/ArticleService.js';
-import { CommentService } from '../services/commentService.js';
+import { ArticleService } from "../services/ArticleService.js";
+import { isValid } from "../utils/validator.ts";
 
 export class ArticleController {
-  // Crear nota/artículo
+  // Create article
   static async create(req, res, next) {
     try {
       const noteData = {
         ...req.body,
-        usuario: req.user.id
+        userId: req.user.id,
       };
 
       const note = await ArticleService.create(noteData);
 
       res.status(201).json({
         success: true,
-        message: 'Nota creada exitosamente',
-        data: note.toJSON()
+        message: "Article created successfully",
+        data: note.toJSON(),
       });
     } catch (error) {
       next(error);
     }
   }
 
-  // Obtener todas las notas con paginación
+  // Get all articles with pagination
   static async getAll(req, res, next) {
     try {
       const page = parseInt(req.query.page) || 1;
       const limit = parseInt(req.query.limit) || 5;
-      const userId = req.query.userId;
 
-      const result = await ArticleService.findAll({ page, limit, userId });
+      const result = await ArticleService.findAll({
+        page,
+        limit,
+      });
 
-      res.status(200).json({
+      if (!isValid(result, { dataType: "object" })) {
+        return res.status(404).json({
+          success: false,
+          message: "No articles found",
+        });
+      }
+
+      return res.status(200).json({
         success: true,
-        data: result.articles.map(note => note.toJSON()),
+        data: result,
         pagination: {
           total: result.total,
           page: result.page,
@@ -43,128 +52,184 @@ export class ArticleController {
           hasMore: result.page < result.pages,
           nextPage: result.page < result.pages ? result.page + 1 : null,
           prevPage: result.page > 1 ? result.page - 1 : null,
-        }
+        },
       });
     } catch (error) {
       next(error);
     }
   }
 
-  // Obtener nota por ID con comentarios
+  // Get article by ID with comments
   static async getById(req, res, next) {
     try {
-      const note = await ArticleService.findById(req.params.id);
-
-      if (!note) {
+      const articleId = req.params.id;
+      if (!isValid(articleId)) {
         return res.status(404).json({
           success: false,
-          message: 'Nota no encontrada'
+          message: "Article id is required",
+        });
+      }
+      const article = await ArticleService.findById(articleId);
+
+      if (!isValid(article)) {
+        return res.status(404).json({
+          success: false,
+          message: "Article not found",
         });
       }
 
-      // Obtener comentarios de la nota
-      const rawId = req.params.id;
-      const normalizedId = typeof rawId === 'object' ? (rawId.id || rawId._id || rawId.articleId || rawId.toString?.()) : rawId;
-      const comments = await CommentService.findByArticleId(normalizedId);
-
-      const noteData = note.toJSON();
-      noteData.comentarios = comments.map(comment => comment.toJSON());
-
       res.status(200).json({
         success: true,
-        data: noteData
+        data: article,
       });
     } catch (error) {
       next(error);
     }
   }
 
-  // Obtener notas por usuario
   static async getByUserId(req, res, next) {
     try {
-      const notes = await ArticleService.findByUserId(req.params.userId);
+      const page = parseInt(req.query.page) || 1;
+      const limit = parseInt(req.query.limit) || 5;
+      const userId = req.params.userId;
+      if (!isValid(userId)) {
+        return res.status(404).json({
+          success: false,
+          message: "User id is required",
+        });
+      }
+      const article = await ArticleService.findByUserId(userId, {
+        page,
+        limit,
+      });
+
+      if (!isValid(article)) {
+        return res.status(404).json({
+          success: false,
+          message: "Article not found",
+        });
+      }
 
       res.status(200).json({
         success: true,
-        data: notes.map(note => note.toJSON())
+        data: article,
       });
     } catch (error) {
       next(error);
     }
   }
 
-  // Buscar notas
+  /**
+   * Search articles by query with role-based access control
+   * - Regular users: search only their own articles
+   * - Admins: search all articles or filter by userId
+   *
+   * @param {Object} req - Express request object
+   * @param {Object} req.query - Query parameters
+   * @param {string} req.query.q - Search term (required)
+   * @param {string} [req.query.userId] - User ID filter (admin only)
+   * @param {number} [req.query.page=1] - Page number for pagination
+   * @param {number} [req.query.limit=5] - Items per page
+   * @param {Object} req.user - Authenticated user
+   * @param {string} req.user.id - User ID
+   * @param {string} req.user.rol - User role (admin/user)
+   * @param {Object} res - Express response object
+   * @param {Function} next - Express next middleware
+   * @returns {Promise<void>}
+   */
   static async search(req, res, next) {
     try {
-      const { q } = req.query;
+      const { q, userId, page = 1, limit = 5 } = req.query;
 
-      if (!q) {
+      if (!isValid(q)) {
         return res.status(400).json({
           success: false,
-          message: 'Query de búsqueda es requerido'
+          message: "Search query is required",
         });
       }
 
-      const notes = await ArticleService.search(q);
+      // Enforce role-based scoping
+      let scopedUserId = null;
+      if (req.user?.rol !== "admin") {
+        // Non-admins can only search their own articles
+        scopedUserId = req.user.id;
+      } else if (userId) {
+        // Admins can optionally filter by userId
+        scopedUserId = userId;
+      }
+
+      const result = await ArticleService.search(q, scopedUserId, {
+        page: parseInt(page),
+        limit: parseInt(limit),
+      });
 
       res.status(200).json({
         success: true,
-        data: notes.map(note => note.toJSON())
+        data: result.articles.map((article) => article.toJSON()),
+        pagination: {
+          total: result.total,
+          page: result.page,
+          pages: result.pages,
+          limit: parseInt(limit),
+        },
       });
     } catch (error) {
       next(error);
     }
   }
 
-  // Actualizar nota
+  // Update article
   static async update(req, res, next) {
     try {
-      const note = await ArticleService.findById(req.params.id);
+      const article = await ArticleService.findById(req.params.id);
 
-      if (!note) {
+      if (!article) {
         return res.status(404).json({
           success: false,
-          message: 'Nota no encontrada'
+          message: "Article not found",
         });
       }
 
-      // Verificar que el usuario sea el propietario
-      if (note.usuario !== req.user.id && req.user.rol !== 'admin') {
+      // Verificar que el user sea el propietario
+      if (article.userId !== req.user.id && req.user.rol !== "admin") {
         return res.status(403).json({
           success: false,
-          message: 'No tienes permiso para actualizar esta nota'
+          message: "You don't have permission to update this article",
         });
       }
 
-      const updatedNote = await ArticleService.update(req.params.id, req.body);
+      const updatedArticle = await ArticleService.update(
+        req.params.id,
+        req.body,
+      );
 
       res.status(200).json({
         success: true,
-        message: 'Nota actualizada exitosamente',
-        data: updatedNote.toJSON()
+        message: "Article updated successfully",
+        data: updatedArticle.toJSON(),
       });
     } catch (error) {
       next(error);
     }
   }
 
-  // Eliminar nota
+  // Delete article
   static async delete(req, res, next) {
     try {
-      const note = await ArticleService.findById(req.params.id);
+      const article = await ArticleService.findById(req.params.id);
 
-      if (!note) {
+      if (!article) {
         return res.status(404).json({
           success: false,
-          message: 'Nota no encontrada'
+          message: "Article not found",
         });
       }
 
-      // Verificar que el usuario sea el propietario
-      if (note.usuario !== req.user.id && req.user.rol !== 'admin') {
+      // Verificar que el user sea el propietario
+      if (article.userId !== req.user.id && req.user.rol !== "admin") {
         return res.status(403).json({
           success: false,
-          message: 'No tienes permiso para eliminar esta nota'
+          message: "You do not have permission to delete this article",
         });
       }
 
@@ -172,7 +237,7 @@ export class ArticleController {
 
       res.status(200).json({
         success: true,
-        message: 'Nota eliminada exitosamente'
+        message: "Article deleted successfully",
       });
     } catch (error) {
       next(error);

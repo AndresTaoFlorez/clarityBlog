@@ -1,183 +1,324 @@
-// backend/src/services/noteService.js
-import { db } from '../config/database.js';
-import { Note } from '../models/Note.js';
+// backend/src/services/ArticleService.js
+import { db } from "../config/database.js";
+import { Article } from "../models/Article.js";
+import { isValid } from "../utils/validator.ts";
 
 export class ArticleService {
   // Crear artículo/nota
-  static async create(noteData) {
+  static async create(rawArticle) {
     try {
-      const note = new Note(noteData);
-
-      if (!note.isValid()) {
-        throw new Error('Datos de nota inválidos');
+      if (!isValid(rawArticle)) {
+        throw new Error("Article data is invalid");
       }
 
+      const article = Article.create(rawArticle);
+      const { categories } = article;
+
       // Insertar en tabla 'articles' de Supabase
-      const { data: newArticle, error } = await db
-        .from('articles')
-        .insert([note.toInsert()])
+      const { data: articleData, error } = await db
+        .from("articles")
+        .insert([article.toInsert()])
         .select()
         .single();
 
+      await (async () => {
+        if (isValid(categories, { dataType: "array" })) {
+          const categoryInserts = categories.map((category) => ({
+            article_id: articleData.id,
+            category_id: category.id || category,
+          }));
+
+          return await db.from("articles_categories").insert(categoryInserts);
+        } else {
+          return await db.from("articles_categories").insert({
+            article_id: articleData.id,
+            category_id: categories,
+          });
+        }
+      })();
+
       if (error) throw error;
 
       // Obtener nombre del autor
       const { data: userData } = await db
-        .from('users')
-        .select('name, avatar')
-        .eq('id', newArticle.user_id)
+        .from("users")
+        .select("name, avatar, email")
+        .eq("id", article.userId)
         .single();
 
-      return Note.fromDatabase({ ...newArticle, author_avatar: userData?.avatar }, userData?.name || '');
+      const createdArticle = {
+        ...articleData,
+        ...userData,
+        categories: [...categories],
+      };
+
+      return Article.fromDatabase(createdArticle);
     } catch (error) {
-      throw new Error(`Error al crear nota: ${error.message}`);
+      throw new Error(`Create article failed: ${error.message}`);
     }
   }
 
-  // Obtener artículo/nota por ID con el nombre del autor
-  static async findById(id) {
-    try {
-      const { data: articleData, error } = await db
-        .from('articles')
-        .select('*')
-        .eq('id', id)
-        .single();
-
-      if (error) throw error;
-      if (!articleData) return null;
-
-      // Obtener nombre del autor
-      const { data: userData } = await db
-        .from('users')
-        .select('name, avatar')
-        .eq('id', articleData.user_id)
-        .single();
-
-      return Note.fromDatabase({ ...articleData, author_avatar: userData?.avatar }, userData?.name || '');
-    } catch (error) {
-      throw new Error(`Error al buscar nota: ${error.message}`);
-    }
-  }
-
-  // Obtener todos los artículos/notas con paginación y filtros
-  static async findAll({ page = 1, limit = 5, userId, category } = {}) {
+  /**
+   * Get all articles with user information using INNER JOIN
+   * @returns {Promise<Array>} Array of articles with user data
+   */
+  static async findAll({ page = 1, limit = 5 } = {}) {
     try {
       const offset = (page - 1) * limit;
-
-      let query = db
-        .from('articles')
-        .select('*', { count: 'exact' });
-
-      // Aplicar filtros
-      if (userId) {
-        query = query.eq('user_id', userId);
-      }
-      if (category) {
-        query = query.eq('category', category);
-      }
-
-      query = query
-        .order('created_at', { ascending: false })
+      const { data, error, count } = await db
+        .from("articles")
+        .select(
+          `
+        *,
+        users!inner (
+          name,
+          avatar,
+          email
+        ),
+        articles_categories (
+          article_categories!inner (
+            id,
+            label,
+            value
+          )
+        )
+      `,
+          { count: "exact" },
+        )
+        .order("created_at", { ascending: false })
         .range(offset, offset + limit - 1);
-
-      const { data: articlesData, error, count } = await query;
 
       if (error) throw error;
 
-      // Obtener nombres de autores para todos los artículos
-      const articlesWithAuthors = await Promise.all(
-        articlesData.map(async (article) => {
-          const { data: userData } = await db
-            .from('users')
-            .select('name')
-            .eq('id', article.user_id)
-            .single();
+      // Transform the nested structure to match your SQL query format
+      const transformedData = data.map((article) => {
+        const categories =
+          article.articles_categories?.map((ac) => ac.article_categories) || [];
+        return {
+          ...article,
+          categories,
+          user_name: article.users.name,
+          user_avatar: article.users.avatar,
+          user_email: article.users.email,
+          users: undefined,
+          articles_categories: undefined,
+        };
+      });
 
-          return Note.fromDatabase(article, userData?.name || '');
-        })
-      );
+      const articlesWithAuthors = Article.fromDatabaseList(transformedData);
 
       return {
         articles: articlesWithAuthors,
         total: count,
         page,
-        pages: Math.ceil(count / limit)
+        pages: Math.ceil(count / limit),
       };
     } catch (error) {
-      throw new Error(`Error al obtener notas: ${error.message}`);
+      throw new Error(
+        `Error fetching articles with user info: ${error.message}`,
+      );
     }
   }
 
-  // Obtener artículos/notas por usuario
-  static async findByUserId(userId) {
+  /**
+   * Get a single article with user information by ID
+   * @param {string} articleId - UUID of the article
+   * @returns {Promise<Object>} Article with user data
+   */
+  static async findById(articleId) {
     try {
-      const { data: articlesData, error } = await db
-        .from('articles')
-        .select('*')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-
-      // Obtener nombre del autor (será el mismo para todos)
-      const { data: userData } = await db
-        .from('users')
-        .select('name')
-        .eq('id', userId)
+      const { data, error } = await db
+        .from("articles")
+        .select(
+          `
+        *,
+        users!inner (
+          name,
+          avatar,
+          email
+        ),
+        articles_categories (
+          article_categories!inner (
+            id,
+            label,
+            value
+          )
+        )
+      `,
+          { count: "exact" },
+        )
+        .order("created_at", { ascending: false })
+        .eq("id", articleId)
         .single();
 
-      return articlesData.map(article =>
-        Note.fromDatabase(article, userData?.name || '')
-      );
+      if (error) {
+        throw error;
+      }
+
+      // Transform to flat structure
+      return {
+        ...Article.fromDatabase({
+          ...data,
+          categories:
+            data.articles_categories?.map((ac) => ac.article_categories) || [],
+        }),
+        users: undefined,
+      };
     } catch (error) {
-      throw new Error(`Error al obtener notas del usuario: ${error.message}`);
+      console.error("Error fetching article by ID with user info:", error);
+      throw error;
     }
   }
 
-  // Buscar artículos por query
-  static async search(query) {
+  /**
+   * Get articles by user ID with user information
+   * @param {string} userId - UUID of the user
+   * @returns {Promise<Array>} Array of articles with user data
+   */
+  static async findByUserId(userId, { page = 1, limit = 5 }) {
     try {
-      const { data: articlesData, error } = await db
-        .from('articles')
-        .select('*')
+      const offset = (page - 1) * limit;
+      const { data, error, count } = await db
+        .from("articles")
+        .select(
+          `
+        *,
+        users!inner (
+          name,
+          avatar,
+          email
+        ),
+        articles_categories (
+          article_categories!inner (
+            id,
+            label,
+            value
+          )
+        )
+      `,
+          { count: "exact" },
+        )
+        .order("created_at", { ascending: false })
+        .range(offset, offset + limit - 1)
+        .eq("user_id", userId);
+
+      if (error) {
+        throw error;
+      }
+
+      const transformedData = data.map((article) => {
+        const categories =
+          article.articles_categories?.map((ac) => ac.article_categories) || [];
+        return {
+          ...article,
+          categories,
+          user_name: article.users.name,
+          user_avatar: article.users.avatar,
+          user_email: article.users.email,
+          users: undefined,
+          articles_categories: undefined,
+        };
+      });
+
+      const articlesWithAuthors = Article.fromDatabaseList(transformedData);
+
+      return {
+        articles: articlesWithAuthors,
+        total: count,
+        page,
+        pages: Math.ceil(count / limit),
+      };
+    } catch (error) {
+      console.error("Error fetching article by user ID with user info:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Search articles by title or description with pagination
+   * @param {string} query - Search term
+   * @param {string|null} userId - Optional user ID to filter results
+   * @param {Object} options - Pagination options
+   * @param {number} options.page - Page number (default: 1)
+   * @param {number} options.limit - Items per page (default: 5)
+   * @returns {Promise<Object>} Paginated articles with total count
+   */
+  static async search(query, userId = null, { page = 1, limit = 5 } = {}) {
+    try {
+      const offset = (page - 1) * limit;
+
+      let dbQuery = db
+        .from("articles")
+        .select(
+          `
+        *,
+        users!inner (
+          name,
+          avatar,
+          email
+        ),
+        articles_categories (
+          article_categories!inner (
+            id,
+            label,
+            value
+          )
+        )
+      `,
+          { count: "exact" },
+        )
         .or(`title.ilike.%${query}%,description.ilike.%${query}%`)
-        .order('created_at', { ascending: false });
+        .order("created_at", { ascending: false })
+        .range(offset, offset + limit - 1);
+
+      if (userId) {
+        dbQuery = dbQuery.eq("user_id", userId);
+      }
+
+      const { data, error, count } = await dbQuery;
 
       if (error) throw error;
 
-      // Obtener nombres de autores
-      const articlesWithAuthors = await Promise.all(
-        articlesData.map(async (article) => {
-          const { data: userData } = await db
-            .from('users')
-            .select('name')
-            .eq('id', article.user_id)
-            .single();
+      const transformedData = data.map((article) => {
+        const categories =
+          article.articles_categories?.map((ac) => ac.article_categories) || [];
+        return {
+          ...article,
+          categories,
+          user_name: article.users.name,
+          user_avatar: article.users.avatar,
+          user_email: article.users.email,
+          users: undefined,
+          articles_categories: undefined,
+        };
+      });
 
-          return Note.fromDatabase(article, userData?.name || '');
-        })
-      );
+      const articlesWithAuthors = Article.fromDatabaseList(transformedData);
 
-      return articlesWithAuthors;
+      return {
+        articles: articlesWithAuthors,
+        total: count,
+        page,
+        pages: Math.ceil(count / limit),
+      };
     } catch (error) {
-      throw new Error(`Error al buscar notas: ${error.message}`);
+      throw new Error(`Error searching articles: ${error.message}`);
     }
   }
-
   // Actualizar artículo/nota
   static async update(id, noteData) {
     try {
       const updateData = {};
 
-      if (noteData.titulo) updateData.title = noteData.titulo;
-      if (noteData.contenido) updateData.description = noteData.contenido;
+      if (noteData.title) updateData.title = noteData.title;
+      if (noteData.content) updateData.description = noteData.content;
 
       updateData.updated_at = new Date().toISOString();
 
       const { data: updatedArticle, error } = await db
-        .from('articles')
+        .from("articles")
         .update(updateData)
-        .eq('id', id)
+        .eq("id", id)
         .select()
         .single();
 
@@ -185,12 +326,12 @@ export class ArticleService {
 
       // Obtener nombre del autor
       const { data: userData } = await db
-        .from('users')
-        .select('name')
-        .eq('id', updatedArticle.user_id)
+        .from("users")
+        .select("name")
+        .eq("id", updatedArticle.user_id)
         .single();
 
-      return Note.fromDatabase(updatedArticle, userData?.name || '');
+      return Note.fromDatabase(updatedArticle, userData?.name || "");
     } catch (error) {
       throw new Error(`Error al actualizar nota: ${error.message}`);
     }
@@ -199,10 +340,7 @@ export class ArticleService {
   // Eliminar artículo/nota (CASCADE eliminará comments relacionados)
   static async delete(id) {
     try {
-      const { error } = await db
-        .from('articles')
-        .delete()
-        .eq('id', id);
+      const { error } = await db.from("articles").delete().eq("id", id);
 
       if (error) throw error;
 

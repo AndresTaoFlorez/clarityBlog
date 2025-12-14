@@ -1,13 +1,54 @@
 // backend/src/routes/categoryRoutes.js
-import express from 'express'
-import { CategoryController } from '../controllers/categoryController.js'
+import express from "express";
+import { CategoryController } from "../controllers/categoryController.js";
+import { authenticate } from "../middlewares/authMiddleware.js";
 
-const router = express.Router()
+const router = express.Router();
 
-// GET /api/categories
-router.get('/', CategoryController.list)
+/**
+ * @route   GET /api/categories/search
+ * @desc    Search categories by value or label
+ * @query   {string} q - Search term (required)
+ * @query   {number} [page=1] - Page number
+ * @query   {number} [limit=10] - Items per page
+ * @access  Public
+ */
+router.get("/search", CategoryController.searchCategories);
 
-// GET /api/categories/:slug/articles
-router.get('/:slug/articles', CategoryController.articlesByCategory)
+/**
+ * @route   GET /api/categories
+ * @desc    Get all categories with pagination
+ * @query   {number} [page=1] - Page number
+ * @query   {number} [limit=10] - Items per page
+ * @access  Public
+ */
+router.get("/", CategoryController.getAllCategories);
 
-export default router
+/**
+ * @route   POST /api/categories
+ * @desc    Create a new category
+ * @body    {string} value - Category value (slug)
+ * @body    {string} label - Category display name
+ * @access  Private (Admin only)
+ */
+router.post("/", authenticate, CategoryController.createCategory);
+
+/**
+ * @route   PUT /api/categories/:categoryId
+ * @desc    Update an existing category
+ * @param   {string} categoryId - Category UUID
+ * @body    {string} [value] - New category value
+ * @body    {string} [label] - New category label
+ * @access  Private (Admin only)
+ */
+router.put("/:categoryId", authenticate, CategoryController.updateCategory);
+
+/**
+ * @route   DELETE /api/categories/:categoryId
+ * @desc    Delete a category
+ * @param   {string} categoryId - Category UUID
+ * @access  Private (Admin only)
+ */
+router.delete("/:categoryId", authenticate, CategoryController.deleteCategory);
+
+export default router;

@@ -1,6 +1,6 @@
 // backend/src/services/authService.js
-import { UserService } from './userService.js';
-import jwt from 'jsonwebtoken';
+import { UserService } from "./userService.js";
+import jwt from "jsonwebtoken";
 
 export class AuthService {
   // Registrar usuario
@@ -8,15 +8,15 @@ export class AuthService {
     try {
       // Mapear campos del frontend (español) a modelo
       const mappedData = {
-        nombre: userData.nombre,
-        correo: userData.correo,
-        password: userData.password
+        name: userData.name,
+        email: userData.email,
+        password: userData.password,
       };
 
       // Verificar si el email ya existe
-      const existingUser = await UserService.findByEmail(mappedData.correo);
+      const existingUser = await UserService.findByEmail(mappedData.email);
       if (existingUser) {
-        throw new Error('El correo ya está registrado');
+        throw new Error("El email ya está registrado");
       }
 
       // Crear usuario
@@ -28,7 +28,7 @@ export class AuthService {
       return {
         user: user.toJSON(),
         token,
-        expiresIn: '24h'
+        expiresIn: "24h",
       };
     } catch (error) {
       throw new Error(`Error en registro: ${error.message}`);
@@ -39,23 +39,23 @@ export class AuthService {
   static async login(credentials) {
     try {
       // Mapear campos del frontend (español)
-      const correo = credentials.correo || credentials.email;
+      const email = credentials.email;
       const password = credentials.password;
 
       // Buscar usuario por email
-      const user = await UserService.findByEmail(correo);
+      const user = await UserService.findByEmail(email);
       if (!user) {
-        throw new Error('Credenciales inválidas');
+        throw new Error("Credenciales inválidas");
       }
 
       // Verificar contraseña
       const isValidPassword = await UserService.verifyPassword(
         password,
-        user.password
+        user.password,
       );
 
       if (!isValidPassword) {
-        throw new Error('Credenciales inválidas');
+        throw new Error("Credenciales inválidas");
       }
 
       // Generar token
@@ -64,7 +64,7 @@ export class AuthService {
       return {
         user: user.toJSON(),
         token,
-        expiresIn: '24h'
+        expiresIn: "24h",
       };
     } catch (error) {
       throw new Error(`Error en login: ${error.message}`);
@@ -74,13 +74,13 @@ export class AuthService {
   // Generar JWT
   static generateToken(user) {
     return jwt.sign(
-      { 
-        id: user.id, 
-        email: user.email, 
-        rol: user.rol 
+      {
+        id: user.id,
+        email: user.email,
+        role: user.role,
       },
       process.env.JWT_SECRET,
-      { expiresIn: '24h' }
+      { expiresIn: "24h" },
     );
   }
 
@@ -89,7 +89,7 @@ export class AuthService {
     try {
       return jwt.verify(token, process.env.JWT_SECRET);
     } catch (error) {
-      throw new Error('Token inválido');
+      throw new Error("Token inválido");
     }
   }
 }

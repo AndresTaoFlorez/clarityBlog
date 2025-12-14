@@ -17,7 +17,7 @@ export class Comment {
     author_avatar = '😊',
   }) {
     this.id = id;
-    this.contenido = contenido.trim();
+    this.contenido = typeof contenido === 'string' ? contenido : String(contenido ?? '');
     this.userId = userId;
     this.notaId = notaId;
     this.created_at = created_at;
@@ -29,17 +29,25 @@ export class Comment {
     }
   }
 
-  /**
-   * Devuelve representación para el Frontend
-   */
+  /** Return API payload in English (with temporary Spanish aliases for compatibility) */
   toJSON() {
+    const author = {
+      id: this.userId,
+      name: this.author_name || undefined,
+      avatar: this.author_avatar || undefined,
+    };
     return {
+      id: this.id,
+      content: this.contenido,
+      userId: this.userId,
+      articleId: this.notaId,
+      createdAt: this.created_at,
+      author,
+      // temporary legacy aliases
       _id: this.id,
       contenido: this.contenido,
-      userId: this.userId,
       notaId: this.notaId,
-      createdAt: this.created_at,
-      // Puedes incluir autor aquí si lo inyectas al crear la instancia
+      autor: { _id: this.userId, nombre: this.author_name || undefined, avatar: this.author_avatar || undefined },
     };
   }
 
@@ -115,9 +123,9 @@ export class Comment {
   static create(data) {
     const comment = new Comment({
       id: data.id ?? data._id ?? null,
-      contenido: data.contenido ?? data.comment ?? '',
+      contenido: data.contenido ?? data.content ?? data.comment ?? '',
       userId: data.userId ?? data.user_id ?? data.user_id,
-      notaId: data.notaId ?? data.article_id ?? data.nota_id,
+      notaId: data.notaId ?? data.articleId ?? data.article_id ?? data.nota_id,
       created_at: data.created_at ?? data.createdAt,
       updated_at: data.updated_at ?? data.updatedAt,
     });
@@ -136,7 +144,7 @@ export class Comment {
    * @param {string} [authorName=''] - Nombre del autor (opcional, para frontend)
    * @returns {Comment}
    */
-  static fromDatabase(dbComment, authorName = '') {
+  static fromDatabase(dbComment, authorName = '', authorAvatar = '😊') {
     return new Comment({
       id: dbComment.id,
       contenido: dbComment.comment || '',
@@ -144,6 +152,8 @@ export class Comment {
       notaId: dbComment.article_id,
       created_at: dbComment.created_at,
       updated_at: dbComment.updated_at,
+      author_name: authorName,
+      author_avatar: authorAvatar,
     });
   }
 }

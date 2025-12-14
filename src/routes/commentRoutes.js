@@ -6,6 +6,15 @@ import { authenticate } from '../middlewares/authMiddleware.js';
 const router = express.Router();
 
 /**
+ * @route   POST /api/comments
+ * @desc    Crear comentario
+ * @access  Private
+ * @body    { article_id: uuid, comment: string }
+ * @returns 201 Created con { id, content, userId, articleId, createdAt, author }
+ */
+router.post('/', authenticate, CommentController.createRoot);
+
+/**
  * @route   DELETE /api/comments/:id
  * @desc    Eliminar comentario
  * @access  Private (solo el autor o admin)
