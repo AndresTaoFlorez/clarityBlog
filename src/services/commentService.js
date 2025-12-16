@@ -1,189 +1,270 @@
 // backend/src/services/commentService.js
-import { db } from '../config/database.js';
-import { Comment } from '../models/Comment.js';
+import { db } from "../config/database.js";
+import { Comment } from "../models/Comment.js";
+import { User } from "../models/User.js";
+import { equal, isValid, merge } from "../utils/validator.ts";
+import { UserService } from "./userService.js";
 
 export class CommentService {
   // Crear comentario
-  static async create(commentData) {
+  static async create(articleId, commentData) {
     try {
-      const comment = Comment.create(commentData);
-      
-      if (!comment.isValid()) {
-        throw new Error(`Datos de comentario inválidos.`);
+      // Get article
+      const { data: dbArticle, count } = await db
+        .from("articles")
+        .select("*", { count: "exact" })
+        .eq("id", articleId)
+        .single();
+
+      if (count === 0 || !count) {
+        return {
+          error: { message: `Article ${articleId} to comment on not found` },
+        };
       }
 
-      // Insertar en tabla 'comments' de Supabase
-      const { data: newComment, error } = await db
-        .from('comments')
-        .insert([comment.toInsert()])
-        .select()
+      // Get user
+      const { data: user, error: userError } = await db
+        .from("users")
+        .select("userId:id, name, email, avatar")
+        .eq("id", dbArticle.user_id)
         .single();
 
-      if (error) throw error;
+      if (userError) {
+        return { error: { message: JSON.stringify(userError) } };
+      }
 
-      // Obtener nombre del autor
-      const { data: userData } = await db
-        .from('users')
-        .select('name, avatar')
-        .eq('id', newComment.user_id)
+      const incomingComment = { articleId, comment: commentData, ...user };
+      const comment = Comment.create(incomingComment);
+
+      // 'comments' table insert
+      const { data: dbComment, error: commentError } = await db
+        .from("comments")
+        .insert(comment.toInsert())
+        .select("*")
         .single();
 
-      return Comment.fromDatabase(newComment, userData?.name || '', userData?.avatar || '😊');
+      const commentResponse = Comment.fromDatabase(merge(comment, dbComment));
+
+      if (commentError) {
+        return { error: { message: JSON.stringify(commentError) } };
+      }
+
+      return {
+        error: false,
+        data: commentResponse,
+      };
     } catch (error) {
-      throw new Error(`Error al crear comentario: ${error.message}`);
+      throw new Error(`Creating comment error: ${error.message}`);
+    }
+  }
+
+  static async findAllByArticleId(articleId, { page = 1, limit = 5 } = {}) {
+    try {
+      const offset = (page - 1) * limit;
+
+      const {
+        data: dbComments,
+        error: dbCommentsError,
+        count,
+      } = await db
+        .from("comments")
+        .select(
+          `*,
+          users!inner (
+          userId:id,
+          name,
+          avatar,
+          email)`,
+          { count: "exact" },
+        )
+        .eq("article_id", articleId)
+        .order("created_at", { ascending: false })
+        .range(offset, offset + limit - 1);
+
+      if (count === 0 || !isValid(count)) {
+        return {
+          error: {
+            message: `Comments not found: ${JSON.stringify(dbCommentsError)}`,
+          },
+        };
+      }
+
+      const comments = Comment.fromDatabaseList(
+        dbComments.map((comment) => ({
+          ...merge(comment, User.fromDatabaseToArticle(comment.users)),
+          users: undefined,
+        })),
+      );
+
+      return {
+        error: false,
+        data: {
+          comments,
+          total: count,
+          page,
+          pages: Math.ceil(count / limit),
+        },
+      };
+    } catch (error) {
+      throw new Error(`Error retrieving comments: ${error.message}`);
     }
   }
 
   // Obtener comentario por ID
   static async findById(id) {
     try {
-      const { data: commentData, error } = await db
-        .from('comments')
-        .select('*')
-        .eq('id', id)
-        .limit(1)
-        .maybeSingle();
-
-      if (error) throw error;
-      if (!commentData) return null;
-
-      // Obtener nombre del autor
-      const { data: userData } = await db
-        .from('users')
-        .select('name, avatar')
-        .eq('id', commentData.user_id)
+      const { data: dbComments, error: dbCommentsError } = await db
+        .from("comments")
+        .select(
+          `*,
+          user:users!inner (
+          userId:id,
+          name,
+          avatar,
+          email)
+          `,
+        )
+        .eq("id", id)
         .single();
 
-      return Comment.fromDatabase(commentData, userData?.name || '', userData?.avatar || '😊');
-    } catch (error) {
-      throw new Error(`Error al buscar comentario: ${error.message}`);
-    }
-  }
-
-  // Obtener comentarios de un artículo
-  static async findByArticleId(articleId, options = {}) {
-    try {
-      // Normalización estricta: solo aceptar string aquí
-      const normalizedId = String(articleId);
-      if (process.env.NODE_ENV !== 'production') {
-        console.debug('[CommentService.findByArticleId] articleId typeof:', typeof articleId, 'value:', articleId);
-      }
-      const uuidLike = /^[0-9a-fA-F-]{36}$/;
-      if (!normalizedId || normalizedId === '[object Object]' || !uuidLike.test(normalizedId)) {
-        const err = new Error('Parámetro articleId inválido. Debe ser un UUID');
-        err.statusCode = 400;
-        throw err;
+      if (dbCommentsError) {
+        return {
+          error: {
+            message: JSON.stringify(dbCommentsError),
+          },
+        };
       }
 
-      const limit = Math.min(Number(options.limit) || 10, 50);
-      const before = options.before;
-      const after = options.after;
+      const user = dbComments.user;
+      const comment = Comment.fromDatabase(merge(user, dbComments));
 
-      // Total de comentarios para el artículo
-      const { count: totalCount, error: countError } = await db
-        .from('comments')
-        .select('*', { count: 'exact', head: true })
-        .eq('article_id', normalizedId);
-      if (countError) throw countError;
-
-      // Construir consulta con filtros opcionales
-      let query = db
-        .from('comments')
-        .select('*')
-        .eq('article_id', normalizedId);
-
-      if (before) query = query.lt('created_at', before);
-      if (after) query = query.gt('created_at', after);
-
-      const { data: commentsData, error } = await query
-        .order('created_at', { ascending: false })
-        .limit(limit);
-
-      if (error) throw error;
-
-      // Obtener nombres de autores para cada comentario
-      const commentsWithAuthors = await Promise.all(
-        (commentsData || []).map(async (comment) => {
-          const { data: userData } = await db
-            .from('users')
-           .select('name, avatar')
-            .eq('id', comment.user_id)
-            .single();
-
-          return Comment.fromDatabase(comment, userData?.name || '', userData?.avatar || '😊');
-        })
-      );
-
-      return { items: commentsWithAuthors, total: totalCount || 0 };
+      return {
+        error: false,
+        data: comment,
+      };
     } catch (error) {
-      throw new Error(`Error al obtener comentarios: ${error.message}`);
+      throw new Error(`Error retrieving comments: ${error.message}`);
     }
   }
 
   // Obtener comentarios de un usuario
-  static async findByUserId(userId) {
+  static async findByUserId(userId, { page, limit } = {}) {
     try {
-      const { data: commentsData, error } = await db
-        .from('comments')
-        .select('*')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false });
+      const offset = (page - 1) * limit;
+      const {
+        data: dbComments,
+        error: dbCommentsError,
+        count,
+      } = await db
+        .from("comments")
+        .select(
+          `*,
+          user:users!inner (
+          userId:id,
+          name,
+          avatar,
+          email)
+          `,
+          { count: "exact" },
+        )
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false })
+        .range(offset, offset + limit - 1);
 
-      if (error) throw error;
+      if (dbCommentsError) {
+        return {
+          error: {
+            message: JSON.stringify(dbCommentsError),
+          },
+        };
+      }
 
-      // Obtener nombre del autor (será el mismo para todos)
-      const { data: userData } = await db
-        .from('users')
-        .select('name')
-        .eq('id', userId)
-        .single();
-
-      return commentsData.map(comment =>
-        Comment.fromDatabase(comment, userData?.name || '')
+      const comments = Comment.fromDatabaseList(
+        dbComments.map((comment) => merge(comment, comment.user)),
       );
+
+      return {
+        error: false,
+        data: {
+          comments,
+          total: count,
+          page,
+          pages: Math.ceil(count / limit),
+        },
+      };
     } catch (error) {
-      throw new Error(`Error al obtener comentarios del usuario: ${error.message}`);
+      throw new Error(
+        `Error al obtener comentarios del usuario: ${error.message}`,
+      );
     }
   }
 
-  // Actualizar comentario
-  static async update(id, commentData) {
+  static async update(commentId, reqUser, incomingComment) {
     try {
-      const updateData = {};
+      // get user
+      const { id: reqUserId, role: reqUserRole } = reqUser;
 
-      if (commentData.content) updateData.comment = commentData.content;
+      const { data: dbCommentCheck, error: _dbCommentError } =
+        await CommentService.findById(commentId);
 
-      updateData.updated_at = new Date().toISOString();
+      if (_dbCommentError) {
+        return {
+          error: {
+            message: "Comment not found",
+            code: 404,
+          },
+        };
+      }
 
-      const { data: updatedComment, error } = await db
-        .from('comments')
-        .update(updateData)
-        .eq('id', id)
-        .select()
+      const userId = isValid(dbCommentCheck?.userId) && dbCommentCheck.userId;
+      const { category_id: articleId } = dbCommentCheck;
+
+      if (!equal(userId, reqUserId) && reqUserRole !== "admin") {
+        return {
+          error: {
+            message: "Unauthorized, current user isn't author",
+            code: 403,
+          },
+        };
+      }
+
+      const { data: dbComment, error: dbCommentError } = await db
+        .from("comments")
+        .update({ comment: incomingComment })
+        .select("*")
+        .eq("id", commentId)
         .single();
 
-      if (error) throw error;
+      const { data: dbUser, error: dbUserError } =
+        await UserService.findById(userId);
 
-      // Obtener nombre del autor
-      const { data: userData } = await db
-        .from('users')
-        .select('name, avatar')
-        .eq('id', updatedComment.user_id)
-        .single();
+      if (dbCommentError || dbUserError) {
+        return {
+          error: {
+            message: JSON.stringify(dbUserError),
+            code: 404,
+          },
+        };
+      }
 
-      return Comment.fromDatabase(updatedComment, userData?.name || '');
+      const user = User.fromDatabaseToArticle(dbUser);
+      const merged = merge(dbComment, user, { articleId });
+
+      const comment = Comment.fromDatabase(merged);
+
+      return {
+        error: false,
+        data: comment,
+      };
     } catch (error) {
-      throw new Error(`Error al actualizar comentario: ${error.message}`);
+      throw new Error(`Updating comment error: ${error.message}`);
     }
   }
 
   // Eliminar comentario
   static async delete(id) {
     try {
-      const { error } = await db
-        .from('comments')
-        .delete()
-        .eq('id', id);
+      const { error } = await db.from("comments").delete().eq("id", id);
 
       if (error) throw error;
 

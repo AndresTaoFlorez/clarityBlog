@@ -1,192 +1,90 @@
 // backend/src/controllers/commentController.js
 import { CommentService } from "../services/commentService.js";
 import { db } from "../config/database.js";
+import { isValid } from "../utils/validator.ts";
+import { ArticleService } from "../services/ArticleService.js";
 
 export class CommentController {
   // Crear comentario desde ruta anidada: POST /api/articles/:articleId/comments
   static async create(req, res, next) {
     try {
+      // check articleId param
       const { articleId } = req.params;
-      const raw =
-        req.body?.comment ?? req.body?.content ?? req.body?.contenido ?? "";
-      const content = typeof raw === "string" ? raw : String(raw ?? "");
-      if (!content || content.trim().length === 0) {
-        return res
-          .status(400)
-          .json({ success: false, message: "Comment content is required" });
+      if (!isValid(articleId)) {
+        return res.status(404).json({
+          success: false,
+          message: "Article ID is required",
+        });
+      }
+      // check content of the comment
+      const { comment } = req.body;
+      if (!isValid(comment)) {
+        return res.status(400).json({
+          success: false,
+          message: "Comment content is invalid",
+        });
+      }
+      // check user role
+      const { role } = req.user;
+      const roles = ["admin", "user"];
+      if (!roles.includes(role)) {
+        return res.status(401).json({
+          success: false,
+          message: "Unauthorized",
+        });
       }
 
-      // Validar que el artículo exista
-      const { data: articleRow, error: articleErr } = await db
-        .from("articles")
-        .select("id")
-        .eq("id", articleId)
-        .single();
-      if (articleErr || !articleRow) {
-        return res
-          .status(404)
-          .json({ success: false, message: "Artículo no encontrado" });
+      const { data, error } = await CommentService.create(articleId, comment);
+
+      if (error) {
+        return res.status(404).json({
+          success: false,
+          message: error.message,
+          data,
+        });
       }
-
-      const commentData = {
-        content,
-        userId: req.user.id,
-        articleId,
-      };
-
-      const comment = await CommentService.create(commentData);
-
-      res.status(201).json({
-        success: true,
-        message: "Comment created successfully",
-        data: comment.toJSON(),
-      });
-    } catch (error) {
-      next(error);
-    }
-  }
-
-  /**
-   * Crear comentario desde raíz: POST /api/comments
-   * Body: { article_id: uuid, comment: string }
-   * Requiere autenticación; valida que el artículo exista; devuelve comentario con datos de usuario
-   */
-  static async createRoot(req, res, next) {
-    try {
-      const { article_id, comment: rawComment } = req.body || {};
-      const content =
-        typeof rawComment === "string" ? rawComment : String(rawComment ?? "");
-
-      if (!article_id) {
-        return res
-          .status(400)
-          .json({ success: false, message: "article_id es requerido" });
-      }
-      if (!content || content.trim().length === 0) {
-        return res
-          .status(400)
-          .json({ success: false, message: "comment es requerido" });
-      }
-
-      // Validar que el artículo exista
-      const { data: articleRow, error: articleErr } = await db
-        .from("articles")
-        .select("id")
-        .eq("id", article_id)
-        .single();
-      if (articleErr || !articleRow) {
-        return res
-          .status(404)
-          .json({ success: false, message: "Artículo no encontrado" });
-      }
-
-      const commentData = {
-        content,
-        userId: req.user.id,
-        articleId: article_id,
-      };
-
-      const comment = await CommentService.create(commentData);
 
       return res.status(201).json({
         success: true,
         message: "Comment created successfully",
-        data: comment.toJSON(),
+        data,
       });
     } catch (error) {
       next(error);
     }
   }
 
-  // Obtener comentarios de un artículo
-  static async getCommentsByArticle(req, res, next) {
+  static async getCommentsByArticleId(req, res, next) {
     try {
-      const { articleId: rawArticleId } = req.params;
-      const {
-        limit: rawLimit = 5,
-        before: rawBefore,
-        after: rawAfter,
-      } = req.query;
-
-      // Forzar logs aquí para ver valor real que llega de Express
-      console.log(
-        "DEBUG params typeof:",
-        typeof req.params.articleId,
-        "value:",
-        req.params.articleId,
-      );
-      console.log("DEBUG route params object:", req.params);
-
-      if (process.env.NODE_ENV !== "production") {
-        console.debug(
-          "[CommentController.getCommentsByArticle] params:",
-          req.params,
-          "query:",
-          req.query,
-        );
-      }
-
-      // Normalizar articleId en caso de recibir un objeto en lugar de string
-      let articleId = rawArticleId;
-      if (rawArticleId && typeof rawArticleId === "object") {
-        articleId =
-          rawArticleId.id ||
-          rawArticleId._id ||
-          rawArticleId.articleId ||
-          rawArticleId.toString?.();
-      }
-
-      const articleIdStr = String(articleId);
-      const uuidLike = /^[0-9a-fA-F-]{36}$/;
-      if (
-        !articleIdStr ||
-        articleIdStr === "[object Object]" ||
-        !uuidLike.test(articleIdStr)
-      ) {
+      const page = parseInt(req.query.page) || 1;
+      const limit = parseInt(req.query.limit) || 5;
+      const { articleId } = req.params;
+      if (!isValid(articleId)) {
         return res.status(400).json({
-          success: false,
-          message: "Parámetro articleId inválido. Debe ser un UUID",
+          error: true,
+          message: "Article Id invalid",
         });
       }
 
-      // Normalización robusta de query params
-      const pickFirst = (v) => (Array.isArray(v) ? v[0] : v);
-      const toNumber = (v, def) => {
-        const n = Number(pickFirst(v));
-        return Number.isFinite(n) ? n : def;
-      };
-      const toStringOpt = (v) => {
-        const val = pickFirst(v);
-        return typeof val === "string" ? val : undefined;
-      };
-
-      let pageSize = toNumber(rawLimit, 10);
-      pageSize = Math.min(Math.max(1, pageSize), 50); // rango 1..50
-      const before = toStringOpt(rawBefore);
-      const after = toStringOpt(rawAfter);
-
-      const { items, total } = await CommentService.findByArticleId(
-        articleIdStr,
-        { limit: pageSize, before, after },
-      );
-
-      // Ensure newest-first ordering
-      const sorted = [...items].sort(
-        (a, b) => new Date(b.created_at) - new Date(a.created_at),
-      );
-      const hasMore = sorted.length === pageSize;
-      const lastComment = sorted[sorted.length - 1];
-
-      res.status(200).json({
-        success: true,
-        data: sorted.map((c) => c.toJSON()),
-        pagination: {
-          limit: pageSize,
-          hasMore,
-          total,
-          nextCursor: hasMore ? lastComment.created_at : null,
-          previousCursor: items[0]?.created_at || null,
+      const { data, error } = await CommentService.findAllByArticleId(
+        articleId,
+        {
+          page,
+          limit,
         },
+      );
+
+      if (error) {
+        return res.status(409).json({
+          success: false,
+          message: error.message,
+          data,
+        });
+      }
+
+      return res.status(200).json({
+        success: true,
+        data,
       });
     } catch (error) {
       next(error);
@@ -196,18 +94,59 @@ export class CommentController {
   // Obtener comentario por ID
   static async getById(req, res, next) {
     try {
-      const comment = await CommentService.findById(req.params.id);
-
-      if (!comment) {
-        return res.status(404).json({
+      const { commentId } = req.params;
+      if (!isValid(commentId)) {
+        return res.status(400).json({
           success: false,
-          message: "Comentario no encontrado",
+          message: "Comment ID is invalid",
         });
       }
 
-      res.status(200).json({
+      const { data, error } = await CommentService.findById(commentId);
+
+      if (error) {
+        return res.status(404).json({
+          success: false,
+          message: error.message,
+        });
+      }
+
+      return res.status(200).json({
         success: true,
-        data: comment.toJSON(),
+        data,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async getByUserId(req, res, next) {
+    try {
+      const page = parseInt(req.query.page) || 1;
+      const limit = parseInt(req.query.limit) || 5;
+      const { userId } = req.params;
+      if (!isValid(userId)) {
+        return res.status(400).json({
+          success: false,
+          message: "User Id is invalid",
+        });
+      }
+
+      const { data, error } = await CommentService.findByUserId(userId, {
+        page,
+        limit,
+      });
+
+      if (error) {
+        return res.status(404).json({
+          success: false,
+          message: error.message,
+        });
+      }
+
+      return res.status(200).json({
+        success: true,
+        data,
       });
     } catch (error) {
       next(error);
@@ -215,42 +154,51 @@ export class CommentController {
   }
 
   // Actualizar comentario
-  static async update(req, res, next) {
+  static async updateCommentByArticleId(req, res, next) {
     try {
-      const comment = await CommentService.findById(req.params.id);
-
-      if (!comment) {
+      // check articleId param
+      const { commentId } = req.params;
+      if (!isValid(commentId)) {
         return res.status(404).json({
           success: false,
-          message: "Comentario no encontrado",
+          message: "Comment ID is required",
         });
       }
 
-      // Verificar que el usuario sea el propietario
-      if (comment.userId !== req.user.id && req.user.rol !== "admin") {
-        return res.status(403).json({
+      const { role } = req.user;
+      const roles = ["admin", "user"];
+      if (!roles.includes(role)) {
+        return res.status(401).json({
           success: false,
-          message: "You do not have permission to update this comment",
+          message: "Unauthorized",
         });
       }
 
-      const raw =
-        req.body?.comment ?? req.body?.content ?? req.body?.contenido ?? "";
-      const content = typeof raw === "string" ? raw : String(raw ?? "");
-      if (!content || content.trim().length === 0) {
-        return res
-          .status(400)
-          .json({ success: false, message: "comment es requerido" });
+      // check content of the comment
+      const { comment } = req.body;
+      if (!isValid(comment)) {
+        return res.status(400).json({
+          success: false,
+          message: `Comment content is invalid ${JSON.stringify(comment)}`,
+        });
       }
 
-      const updatedComment = await CommentService.update(req.params.id, {
-        content,
-      });
+      const { data, error } = await CommentService.update(
+        commentId,
+        req.user,
+        comment,
+      );
 
-      res.status(200).json({
+      if (error) {
+        return res.status(error?.code || 400).json({
+          success: false,
+          message: error.message,
+        });
+      }
+
+      return res.status(201).json({
         success: true,
-        message: "Comment updated successfully",
-        data: updatedComment.toJSON(),
+        data,
       });
     } catch (error) {
       next(error);

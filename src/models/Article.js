@@ -12,6 +12,7 @@ export class Article {
     this.authorName = data.authorName || "john doe";
     this.authorAvatar = data.authorAvatar || "🫥";
     this.authorEmail = data.authorEmail || "";
+    this.deleted_at = data.deleted_at || null;
     this.created_at =
       data.created_at || data.createdAt || new Date().toISOString();
     this.updated_at =
@@ -29,6 +30,7 @@ export class Article {
       authorAvatar: this.authorAvatar,
       authorEmail: this.authorEmail,
       categories: this.categories,
+      deleted_at: this.deleted_at,
       created_at: this.created_at,
       updated_at: this.updated_at,
     };
@@ -39,8 +41,6 @@ export class Article {
     return {
       title: this.title,
       description: this.content,
-      user_id: this.userId,
-      categories: this.categories,
       updated_at: new Date().toISOString(),
     };
   }
@@ -79,18 +79,33 @@ export class Article {
     return new Article({
       id: dbArticle.id,
       title: dbArticle.title,
-      content: dbArticle.description,
+      content: dbArticle.description || dbArticle.content,
       categories: dbArticle.categories,
       userId: dbArticle.user_id,
-      authorName: dbArticle.user_name || dbArticle.name,
-      authorAvatar: dbArticle.user_avatar || dbArticle.avatar,
-      authorEmail: dbArticle.user_email || dbArticle.email,
+      authorName: dbArticle.user_name || dbArticle.name || dbArticle.authorName,
+      authorAvatar:
+        dbArticle.user_avatar || dbArticle.avatar || dbArticle.authorAvatar,
+      authorEmail:
+        dbArticle.user_email || dbArticle.email || dbArticle.authorEmail,
+      deleted_at: dbArticle.deleted_at,
       categories: dbArticle.categories,
       created_at: dbArticle.created_at,
       updated_at: dbArticle.updated_at,
     });
   }
 
+  static fromDatabaseCleaned(dbArticle) {
+    return new Article({
+      id: dbArticle.id,
+      title: dbArticle.title,
+      content: dbArticle.description,
+      userId: dbArticle.user_id,
+      categories: dbArticle.categories,
+      deleted_at: dbArticle.deleted_at,
+      created_at: dbArticle.created_at,
+      updated_at: dbArticle.updated_at,
+    });
+  }
   static fromDatabaseList(dbArticles) {
     return dbArticles.map((article) => Article.fromDatabase(article));
   }

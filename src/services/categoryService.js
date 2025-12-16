@@ -206,4 +206,53 @@ export class CategoryService {
       throw new Error(`Delete category failed: ${error.message}`);
     }
   }
+
+  /**
+   * Get all categories associated with an article
+   * @param {String} articleId - Article UUID
+   * @returns {Promise<Array<Category>>} Array of Category instances
+   */
+  static async findByArticleId(articleId, { page = 1, limit = 10 } = {}) {
+    try {
+      const offset = (page - 1) * limit;
+      const { data, error, count } = await db
+        .from("articles_categories")
+        .select(
+          `
+        article_categories!inner (
+          id,
+          value,
+          label,
+          created_at,
+          updated_at
+        )
+      `,
+          { count: "exact" },
+        )
+        .eq("article_id", articleId)
+        .range(offset, offset + limit - 1);
+
+      if (error) {
+        return { error: JSON.stringify(error, null, 2), data };
+      }
+
+      const categories = data.map((item) =>
+        Category.fromDatabase(item.article_categories),
+      );
+
+      return {
+        error: false,
+        data: {
+          payload: categories,
+          total: count,
+          page,
+          pages: Math.ceil(count / limit),
+        },
+      };
+    } catch (error) {
+      throw new Error(
+        `Error fetching categories for article: ${error.message}`,
+      );
+    }
+  }
 }

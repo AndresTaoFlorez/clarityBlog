@@ -2,140 +2,71 @@
 /**
  * Modelo Comment - Mapeo bidireccional entre:
  * - Supabase (tabla: comments → campos: comment, user_id, article_id)
- * - Frontend (espera: _id, contenido, userId, notaId, createdAt, autor?)
+ * - Frontend (espera: _id, comment, userId, articleId, createdAt, autor?)
  */
 export class Comment {
   /** @private */
-  constructor({
-    id = null,
-    contenido = '',
-    userId = null,
-    notaId = null,
-    created_at = new Date().toISOString(),
-    updated_at = new Date().toISOString(),
-    author_name = '',
-    author_avatar = '😊',
-  }) {
-    this.id = id;
-    this.contenido = typeof contenido === 'string' ? contenido : String(contenido ?? '');
-    this.userId = userId;
-    this.notaId = notaId;
-    this.created_at = created_at;
-    this.updated_at = updated_at;
-
-    // Freeze en desarrollo para detectar mutaciones accidentales
-    if (process.env.NODE_ENV !== 'production') {
-      Object.freeze(this);
-    }
+  constructor(data) {
+    this.id = data.id || null;
+    this.comment = data.comment || "";
+    this.userId = data.userId || data.user_id;
+    this.articleId = data.articleId;
+    this.authorName = data.authorName || data.name;
+    this.authorAvatar = data.authorAvatar || data.avatar;
+    this.authorEmail = data.authorEmail || data.email;
+    this.created_at = data.created_at || new Date().toISOString();
+    this.updated_at = data.updated_at || new Date().toISOString();
   }
 
   /** Return API payload in English (with temporary Spanish aliases for compatibility) */
   toJSON() {
-    const author = {
-      id: this.userId,
-      name: this.author_name || undefined,
-      avatar: this.author_avatar || undefined,
-    };
     return {
       id: this.id,
-      content: this.contenido,
+      comment: this.comment,
       userId: this.userId,
-      articleId: this.notaId,
-      createdAt: this.created_at,
-      author,
-      // temporary legacy aliases
-      _id: this.id,
-      contenido: this.contenido,
-      notaId: this.notaId,
-      autor: { _id: this.userId, nombre: this.author_name || undefined, avatar: this.author_avatar || undefined },
+      articleId: this.articleId,
+      authorName: this.authorName,
+      authorAvatar: this.authorAvatar,
+      authorEmail: this.authorEmail,
+      created_at: this.created_at,
+      updated_at: this.updated_at,
     };
   }
 
   /**
-   * Datos para actualizar o insertar parcialmente en Supabase
+   * Update
    */
   toDatabase() {
     return {
-      comment: this.contenido,
+      comment: this.comment,
       user_id: this.userId,
-      article_id: this.notaId,
+      article_id: this.articleId,
       updated_at: new Date().toISOString(),
     };
   }
 
   /**
-   * Solo los campos obligatorios para INSERT en Supabase
+   * Create / INSERTE
    */
   toInsert() {
     return {
-      comment: this.contenido,
+      comment: this.comment,
       user_id: this.userId,
-      article_id: this.notaId,
+      article_id: this.articleId,
     };
-  }
-
-  /**
-   * Validación estricta con mensajes claros
-   * @returns {{ isValid: boolean, errors: string[] }}
-   */
-  validate() {
-    const errors = [];
-
-    if (!this.userId || typeof this.userId !== 'string' || this.userId.trim() === '') {
-      errors.push('userId es obligatorio y debe ser una cadena no vacía');
-    }
-
-    if (!this.notaId || typeof this.notaId !== 'string' || this.notaId.trim() === '') {
-      errors.push('notaId es obligatorio y debe ser una cadena no vacía');
-    }
-
-    if (!this.contenido || typeof this.contenido !== 'string') {
-      errors.push('contenido es obligatorio y debe ser una cadena');
-    } else {
-      const trimmed = this.contenido.trim();
-      if (trimmed.length === 0) {
-        errors.push('El comentario no puede estar vacío o ser solo espacios');
-      }
-      if (trimmed.length > 500) {
-        errors.push('El comentario no puede exceder los 500 caracteres');
-      }
-    }
-
-    return {
-      isValid: errors.length === 0,
-      errors,
-    };
-  }
-
-  /**
-   * Alias simple para compatibilidad (mantiene tu API anterior)
-   */
-  isValid() {
-    return this.validate().isValid;
   }
 
   /**
    * Factory method - Forma recomendada de crear instancias
    * @param {Object} data
    * @returns {Comment}
-   * @throws {Error} si los datos son inválidos
    */
   static create(data) {
-    const comment = new Comment({
-      id: data.id ?? data._id ?? null,
-      contenido: data.contenido ?? data.content ?? data.comment ?? '',
-      userId: data.userId ?? data.user_id ?? data.user_id,
-      notaId: data.notaId ?? data.articleId ?? data.article_id ?? data.nota_id,
-      created_at: data.created_at ?? data.createdAt,
-      updated_at: data.updated_at ?? data.updatedAt,
-    });
-
-    const validation = comment.validate();
-    if (!validation.isValid) {
-      throw new Error(`Comentario inválido: ${validation.errors.join('; ')}`);
-    }
-
-    return comment;
+    return new Comment(
+      Object.fromEntries(
+        Object.entries(data).filter(([_, v]) => v != null && v !== ""),
+      ),
+    );
   }
 
   /**
@@ -144,16 +75,21 @@ export class Comment {
    * @param {string} [authorName=''] - Nombre del autor (opcional, para frontend)
    * @returns {Comment}
    */
-  static fromDatabase(dbComment, authorName = '', authorAvatar = '😊') {
+  static fromDatabase(dbComment) {
     return new Comment({
       id: dbComment.id,
-      contenido: dbComment.comment || '',
-      userId: dbComment.user_id,
-      notaId: dbComment.article_id,
+      comment: dbComment.comment || "",
+      userId: dbComment.userId || dbComment._id,
+      articleId: dbComment.articleId || dbComment.article_id,
+      authorName: dbComment.authorName || dbComment.name,
+      authorAvatar: dbComment.authorAvatar || dbComment.avatar,
+      authorEmail: dbComment.authorEmail || dbComment.email,
       created_at: dbComment.created_at,
       updated_at: dbComment.updated_at,
-      author_name: authorName,
-      author_avatar: authorAvatar,
     });
+  }
+
+  static fromDatabaseList(dbComments) {
+    return dbComments.map((comment) => Comment.fromDatabase(comment));
   }
 }

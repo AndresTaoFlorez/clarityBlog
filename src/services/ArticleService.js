@@ -1,7 +1,10 @@
 // backend/src/services/ArticleService.js
 import { db } from "../config/database.js";
+import { ArticleController } from "../controllers/articleController.js";
 import { Article } from "../models/Article.js";
-import { isValid } from "../utils/validator.ts";
+import { User } from "../models/User.js";
+import { equal, isValid, merge } from "../utils/validator.ts";
+import { CategoryService } from "./categoryService.js";
 
 export class ArticleService {
   // Crear artículo/nota
@@ -77,9 +80,7 @@ export class ArticleService {
         ),
         articles_categories (
           article_categories!inner (
-            id,
-            label,
-            value
+            *
           )
         )
       `,
@@ -131,39 +132,40 @@ export class ArticleService {
         .from("articles")
         .select(
           `
-        *,
-        users!inner (
-          name,
-          avatar,
-          email
-        ),
-        articles_categories (
-          article_categories!inner (
-            id,
-            label,
-            value
-          )
+    id,
+    title,
+    description,
+    created_at,
+    updated_at,
+    user_id,
+    users!inner(
+      userId:id,
+      name,
+      avatar,
+      email
+    ),
+    articles_categories!inner(
+      article_categories(
+       * 
+      )
+    )
+  `,
         )
-      `,
-          { count: "exact" },
-        )
-        .order("created_at", { ascending: false })
         .eq("id", articleId)
         .single();
 
       if (error) {
-        throw error;
+        return { error: { message: error } };
       }
 
-      // Transform to flat structure
-      return {
-        ...Article.fromDatabase({
-          ...data,
-          categories:
-            data.articles_categories?.map((ac) => ac.article_categories) || [],
-        }),
-        users: undefined,
-      };
+      const categories = data.articles_categories?.map(
+        (ac) => ac.article_categories,
+      );
+      const user = data.users;
+
+      const article = Article.fromDatabase(merge(user, data, { categories }));
+
+      return { error: false, data: article };
     } catch (error) {
       console.error("Error fetching article by ID with user info:", error);
       throw error;
@@ -190,9 +192,7 @@ export class ArticleService {
         ),
         articles_categories (
           article_categories!inner (
-            id,
-            label,
-            value
+           * 
           )
         )
       `,
@@ -306,34 +306,84 @@ export class ArticleService {
     }
   }
   // Actualizar artículo/nota
-  static async update(id, noteData) {
+  static async update(id, incomingArticle) {
     try {
-      const updateData = {};
-
-      if (noteData.title) updateData.title = noteData.title;
-      if (noteData.content) updateData.description = noteData.content;
-
-      updateData.updated_at = new Date().toISOString();
-
-      const { data: updatedArticle, error } = await db
+      const newArticle = Article.create(incomingArticle);
+      const { data: dbArticle } = await db
         .from("articles")
-        .update(updateData)
+        .select("*")
         .eq("id", id)
-        .select()
+        .single();
+
+      const { data: rawOldCategories } = await db
+        .from("articles_categories")
+        .select("*")
+        .eq("article_id", id);
+
+      const oldCategories = rawOldCategories.map((cat) => cat.category_id);
+      const newCategories = isValid(newArticle.categories, {
+        dataType: "array",
+      })
+        ? newArticle.categories
+        : oldCategories;
+
+      // update categories
+      if (!equal(oldCategories, newCategories, { dataType: "array" })) {
+        // Find categories to delete (in old but not in new)
+        const toDelete = oldCategories.filter(
+          (oldCat) => !newCategories.some((newCat) => newCat === oldCat),
+        );
+
+        // Find categories to add (in new but not in old)
+        const toAdd = newCategories.filter(
+          (newCat) => !oldCategories.some((oldCat) => oldCat === newCat),
+        );
+
+        // Delete removed categories
+        if (toDelete.length > 0) {
+          await db
+            .from("articles_categories")
+            .delete()
+            .eq("article_id", id)
+            .in("category_id", toDelete);
+        }
+
+        // Add new categories
+        if (toAdd.length > 0) {
+          const categoryInserts = toAdd.map((categoryId) => ({
+            article_id: id,
+            category_id: categoryId,
+          }));
+
+          await db.from("articles_categories").insert(categoryInserts);
+        }
+      }
+
+      const { data: articleData, error } = await db
+        .from("articles")
+        .update(newArticle.toDatabase())
+        .eq("id", id)
+        .select("*")
         .single();
 
       if (error) throw error;
 
-      // Obtener nombre del autor
+      // find author data
       const { data: userData } = await db
         .from("users")
-        .select("name")
-        .eq("id", updatedArticle.user_id)
+        .select("name, avatar, email")
+        .eq("id", dbArticle.user_id)
         .single();
 
-      return Note.fromDatabase(updatedArticle, userData?.name || "");
+      const categories = await CategoryService.findByArticleId(id);
+      console.log(`User categories db: ${JSON.stringify(categories, null, 2)}`);
+
+      const user = User.fromDatabaseToArticle(userData);
+
+      const article = { ...articleData, categories, ...user };
+      return Article.fromDatabase(article);
     } catch (error) {
-      throw new Error(`Error al actualizar nota: ${error.message}`);
+      throw new Error(`Updating article error: ${error.message}`);
     }
   }
 

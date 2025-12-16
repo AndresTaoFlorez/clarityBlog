@@ -1,4 +1,5 @@
 // backend/src/services/authService.js
+import { equal, isValid } from "../utils/validator.ts";
 import { UserService } from "./userService.js";
 import jwt from "jsonwebtoken";
 
@@ -6,32 +7,35 @@ export class AuthService {
   // Registrar usuario
   static async register(userData) {
     try {
-      // Mapear campos del frontend (español) a modelo
-      const mappedData = {
-        name: userData.name,
-        email: userData.email,
-        password: userData.password,
-      };
-
-      // Verificar si el email ya existe
-      const existingUser = await UserService.findByEmail(mappedData.email);
-      if (existingUser) {
-        throw new Error("El email ya está registrado");
+      if (!isValid(userData, { dataType: "object", deep: true })) {
+        throw new Error(`user data is invalid`);
       }
 
-      // Crear usuario
-      const user = await UserService.create(mappedData);
+      const email = userData.email;
+      const { firstUser } = await UserService.findByEmail(email);
+      const { email: existingEmail } = firstUser;
 
-      // Generar token
+      if (equal(email, existingEmail)) {
+        return {
+          error: {
+            message: `User already exist: ${JSON.stringify(firstUser)}`,
+          },
+        };
+      }
+
+      const user = await UserService.create(userData);
       const token = this.generateToken(user);
 
       return {
-        user: user.toJSON(),
-        token,
-        expiresIn: "24h",
+        error: false,
+        data: {
+          user,
+          token,
+          expiresIn: "24h",
+        },
       };
     } catch (error) {
-      throw new Error(`Error en registro: ${error.message}`);
+      throw new Error(`Register error: ${error.message}`);
     }
   }
 
@@ -43,9 +47,9 @@ export class AuthService {
       const password = credentials.password;
 
       // Buscar usuario por email
-      const user = await UserService.findByEmail(email);
-      if (!user) {
-        throw new Error("Credenciales inválidas");
+      const { firstUser: user, error } = await UserService.findByEmail(email);
+      if (error) {
+        return { error: { message: `User already exist: ${firstUser}` } };
       }
 
       // Verificar contraseña
@@ -54,17 +58,20 @@ export class AuthService {
         user.password,
       );
 
-      if (!isValidPassword) {
-        throw new Error("Credenciales inválidas");
+      if (!isValid(isValidPassword)) {
+        throw new Error("Invalid password");
       }
 
       // Generar token
       const token = this.generateToken(user);
 
       return {
-        user: user.toJSON(),
-        token,
-        expiresIn: "24h",
+        error: false,
+        data: {
+          user: user.toJSON(),
+          token,
+          expiresIn: "24h",
+        },
       };
     } catch (error) {
       throw new Error(`Error en login: ${error.message}`);

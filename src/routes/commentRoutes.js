@@ -1,38 +1,59 @@
 // backend/src/routes/commentRoutes.js
-import express from 'express';
-import { CommentController } from '../controllers/commentController.js';
-import { authenticate } from '../middlewares/authMiddleware.js';
+import express from "express";
+import { CommentController } from "../controllers/commentController.js";
+import { authenticate } from "../middlewares/authMiddleware.js";
 
 const router = express.Router();
 
 /**
  * @route   POST /api/comments
- * @desc    Crear comentario
+ * @desc    Create comment
  * @access  Private
- * @body    { article_id: uuid, comment: string }
+ * @body    { success, message, data }
  * @returns 201 Created con { id, content, userId, articleId, createdAt, author }
  */
-router.post('/', authenticate, CommentController.createRoot);
+router.post("/articleId/:articleId", authenticate, CommentController.create);
+
+/**
+ * @route   POST /api/comments/articleId/:articleId
+ * @desc    Get comments to article
+ * @access  Private
+ * @body    { success, message, data }
+ * @returns 201 Created con { id, content, userId, articleId, createdAt, author }
+ */
+router.get("/articleId/:articleId", CommentController.getCommentsByArticleId);
+
+/**
+ * @route   PUT /api/comments/articleId/:articleId
+ * @desc    Update comment
+ * @access  Private
+ * @body    { success, message, data }
+ * @returns 201 Created con { id, content, userId, articleId, createdAt, author }
+ */
+router.put(
+  "/:commentId",
+  authenticate,
+  CommentController.updateCommentByArticleId,
+);
 
 /**
  * @route   DELETE /api/comments/:id
- * @desc    Eliminar comentario
- * @access  Private (solo el autor o admin)
+ * @desc    Delete comment
+ * @access  Private (only autor or admin)
  */
-router.delete('/:id', authenticate, CommentController.delete);
-
-/**
- * @route   PUT /api/comments/:id
- * @desc    Actualizar comentario
- * @access  Private (solo el autor o admin)
- */
-router.put('/:id', authenticate, CommentController.update);
-
+router.delete("/:commentId", authenticate, CommentController.delete);
 /**
  * @route   GET /api/comments/:id
  * @desc    Obtener comentario por ID
  * @access  Public
  */
-router.get('/:id', CommentController.getById);
+router.get("/:commentId", CommentController.getById);
+
+/**
+ * @route   GET /api/comments/userId/:id
+ * @desc    Get comments by User ID
+ * @access  Public
+ */
+router.get("/userId/:userId", CommentController.getByUserId);
 
 export default router;

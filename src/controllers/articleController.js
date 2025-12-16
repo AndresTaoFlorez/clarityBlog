@@ -69,18 +69,18 @@ export class ArticleController {
           message: "Article id is required",
         });
       }
-      const article = await ArticleService.findById(articleId);
+      const { data, error } = await ArticleService.findById(articleId);
 
-      if (!isValid(article)) {
+      if (error) {
         return res.status(404).json({
           success: false,
-          message: "Article not found",
+          message: error.message,
         });
       }
 
       res.status(200).json({
         success: true,
-        data: article,
+        data,
       });
     } catch (error) {
       next(error);
@@ -181,6 +181,14 @@ export class ArticleController {
   // Update article
   static async update(req, res, next) {
     try {
+      const newArtileData = req.body;
+      if (!isValid(newArtileData)) {
+        return res.status(400).json({
+          success: false,
+          message: "new article content is invalid",
+        });
+      }
+
       const article = await ArticleService.findById(req.params.id);
 
       if (!article) {
@@ -200,7 +208,7 @@ export class ArticleController {
 
       const updatedArticle = await ArticleService.update(
         req.params.id,
-        req.body,
+        newArtileData,
       );
 
       res.status(200).json({

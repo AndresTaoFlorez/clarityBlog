@@ -1,4 +1,5 @@
 // backend/src/controllers/categoryController.js
+import { json } from "express";
 import { CategoryService } from "../services/categoryService.js";
 import { isValid } from "../utils/validator.ts";
 
@@ -44,6 +45,74 @@ export class CategoryController {
     }
   }
 
+  /**
+   * Get all categories with pagination
+   * @route GET /api/categories
+   * @access Public
+   */
+  static async getAllCategories(req, res, next) {
+    try {
+      const { page = 1, limit = 10 } = req.query;
+
+      const result = await CategoryService.findAll({
+        page: parseInt(page),
+        limit: parseInt(limit),
+      });
+
+      return res.status(200).json({
+        success: true,
+        data: result.categories.map((cat) => cat.toJSON()),
+        pagination: {
+          total: result.total,
+          page: result.page,
+          pages: result.pages,
+          limit: parseInt(limit),
+        },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async getAllCategoriesByArticleId(req, res, next) {
+    try {
+      const { page = 1, limit = 10 } = req.query;
+
+      const { articleId } = req.params;
+      if (!isValid(articleId)) {
+        return res.status(400).json({
+          success: false,
+          message: "Article ID is required",
+        });
+      }
+      const { data: result, error } = await CategoryService.findByArticleId(
+        articleId,
+        {
+          page: parseInt(page),
+          limit: parseInt(limit),
+        },
+      );
+      if (error) {
+        return res.status(404).json({
+          success: false,
+          message: `Article not found: ${error}`,
+        });
+      }
+
+      return res.status(200).json({
+        success: true,
+        data: result.payload,
+        pagination: {
+          total: result.total,
+          page: result.page,
+          pages: result.pages,
+          limit: parseInt(limit),
+        },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
   /**
    * Update an existing category (Admin only)
    * @route PUT /api/categories/:categoryId
@@ -100,35 +169,6 @@ export class CategoryController {
         success: true,
         message: "Category updated successfully",
         data: data.toJSON(),
-      });
-    } catch (error) {
-      next(error);
-    }
-  }
-
-  /**
-   * Get all categories with pagination
-   * @route GET /api/categories
-   * @access Public
-   */
-  static async getAllCategories(req, res, next) {
-    try {
-      const { page = 1, limit = 10 } = req.query;
-
-      const result = await CategoryService.findAll({
-        page: parseInt(page),
-        limit: parseInt(limit),
-      });
-
-      return res.status(200).json({
-        success: true,
-        data: result.categories.map((cat) => cat.toJSON()),
-        pagination: {
-          total: result.total,
-          page: result.page,
-          pages: result.pages,
-          limit: parseInt(limit),
-        },
       });
     } catch (error) {
       next(error);

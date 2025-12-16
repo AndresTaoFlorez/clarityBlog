@@ -25,6 +25,15 @@ router.get("/search", CategoryController.searchCategories);
 router.get("/", CategoryController.getAllCategories);
 
 /**
+ * @route   GET /api/categories
+ * @desc    Get all categories with pagination
+ * @query   {number} [page=1] - Page number
+ * @query   {number} [limit=10] - Items per page
+ * @access  Public
+ */
+router.get("/articleId/:articleId", CategoryController.getAllCategoriesByArticleId);
+
+/**
  * @route   POST /api/categories
  * @desc    Create a new category
  * @body    {string} value - Category value (slug)

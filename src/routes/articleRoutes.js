@@ -55,19 +55,4 @@ router.put("/:id", authenticate, ArticleController.update);
  */
 router.delete("/:id", authenticate, ArticleController.delete);
 
-// Rutas de comentarios relacionados a/articles
-/**
- * @route   GET /api/articles/:notaId/comentarios
- * @desc    Obtener comentarios de una nota/artículo
- * @access  Public
- */
-router.get("/:articleId/comments", CommentController.getCommentsByArticle);
-
-/**
- * @route   POST /api/articles/:notaId/comentarios
- * @desc    Crear comentario en una nota/artículo
- * @access  Private
- */
-router.post("/:articleId/comments", authenticate, CommentController.create);
-
 export default router;

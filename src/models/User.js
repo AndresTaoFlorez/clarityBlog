@@ -12,10 +12,15 @@ export class User {
     this.role = data.role || "user";
     this.avatar = data.avatar || "😊";
     this.bio = data.bio || data.biography || "";
+    this.deleted_at = data.deleted_at || null;
     this.created_at =
       data.created_at || data.createdAt || new Date().toISOString();
     this.updated_at =
       data.updated_at || data.updatedAt || new Date().toISOString();
+  }
+
+  setPassword(password) {
+    this.password = password;
   }
 
   // Método para obtener el usuario en formato para el FRONTEND
@@ -28,13 +33,13 @@ export class User {
       role: this.role,
       avatar: this.avatar,
       bio: this.bio,
+      deleted_at: this.deleted_at,
       createdAt: this.created_at,
       updatedAt: this.updated_at,
     };
   }
 
-  // Método para preparar datos para SUPABASE (tabla users)
-  // Supabase usa: name, email, password, role
+  // update - prepare data to supabase
   toDatabase() {
     return {
       name: this.email,
@@ -43,18 +48,20 @@ export class User {
       role: this.role,
       avatar: this.avatar,
       bio: this.bio,
+      deleted_at: this.deleted_at,
       updated_at: new Date().toISOString(),
     };
   }
 
-  // Método para preparar datos de inserción en Supabase
+  // create - prepare data to supabase
   toInsert() {
     return {
       name: this.name,
       email: this.email,
       password: this.password,
-      role: this.role || "user",
-      avatar: this.avatar || "😊",
+      role: this.role,
+      avatar: this.avatar,
+      bio: this.bio,
     };
   }
 
@@ -62,19 +69,35 @@ export class User {
   isValid() {
     return (
       this.name &&
-      this.email &&
-      this.password &&
       this.name.trim().length >= 3 &&
-      this.password.length >= 6 &&
-      this.isValidEmail()
+      this.email &&
+      User.isValidEmail(this.email) &&
+      this.password &&
+      this.password.length >= 6
     );
   }
 
-  isValidEmail() {
+  static isValidEmail(email) {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return this.email && emailRegex.test(this.email);
+    return emailRegex.test(email);
   }
 
+  static create(user) {
+    return new User(
+      Object.fromEntries(
+        Object.entries(user).filter(([_, v]) => v != null && v !== ""),
+      ),
+    );
+  }
+
+  static fromDatabaseToArticle(dbUser) {
+    return {
+      userId: dbUser.userId || dbUser.user_id,
+      authorName: dbUser.name,
+      authorAvatar: dbUser.avatar,
+      authorEmail: dbUser.email,
+    };
+  }
   // Mapear desde resultado de Supabase a modelo User
   static fromDatabase(dbUser) {
     return new User({
@@ -85,6 +108,7 @@ export class User {
       role: dbUser.role,
       avatar: dbUser.avatar,
       bio: dbUser.bio,
+      deleted_at: dbUser.deleted_at,
       created_at: dbUser.created_at,
       updated_at: dbUser.updated_at,
     });

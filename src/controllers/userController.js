@@ -6,7 +6,22 @@ export class UserController {
   // Crear usuario (solo admin)
   static async create(req, res, next) {
     try {
-      const user = await UserService.create(req.body);
+      const { role } = req?.user?.role;
+      if (role !== "admin") {
+        return res.status(401).json({
+          success: false,
+          message: "Unauthorized",
+        });
+      }
+      const { data: user, error } = await UserService.create(req.body);
+
+      if (error) {
+        return res.status(400).json({
+          success: false,
+          message: error.message,
+        });
+      }
+
       res.status(201).json({
         success: true,
         message: "User successfully created",
@@ -23,15 +38,22 @@ export class UserController {
       const page = parseInt(req.query.page) || 1;
       const limit = parseInt(req.query.limit) || 10;
 
-      const result = await UserService.findAll(page, limit);
+      const { data, error } = await UserService.findAll(page, limit);
+
+      if (error) {
+        return res.status(400).json({
+          success: false,
+          message: error.message,
+        });
+      }
 
       res.status(200).json({
         success: true,
         data: {
-          users: result.users,
-          totalUsersCount: result.total,
-          currentPage: result.page,
-          totalPagesCount: result.pages,
+          users: data.users,
+          totalUsersCount: data.total,
+          currentPage: data.page,
+          totalPagesCount: data.pages,
         },
       });
     } catch (error) {
@@ -42,9 +64,9 @@ export class UserController {
   // Get user by ID
   static async getById(req, res, next) {
     try {
-      const user = await UserService.findById(req.params.id);
+      const { data: user, error } = await UserService.findById(req.params.id);
 
-      if (!user) {
+      if (error) {
         return res.status(404).json({
           success: false,
           message: "User not found",
@@ -70,8 +92,8 @@ export class UserController {
         });
       }
 
-      const user = await UserService.findByEmail(email);
-      if (!isValid(user)) {
+      const { firstUser: user, error } = await UserService.findByEmail(email);
+      if (error) {
         return res.status(404).json({
           success: false,
           message: "User by email not found",
@@ -99,11 +121,18 @@ export class UserController {
         });
       }
 
-      const users = await UserService.search(q);
+      const { data, error } = await UserService.search(q);
+
+      if (error) {
+        return res.status(400).json({
+          success: false,
+          message: error.message,
+        });
+      }
 
       res.status(200).json({
         success: true,
-        data: users.map((user) => user.toJSON()),
+        data,
       });
     } catch (error) {
       next(error);
@@ -114,16 +143,42 @@ export class UserController {
   static async update(req, res, next) {
     try {
       const userId = req.params.id;
+      const { role } = req.user.role;
       const body = req.body;
       if (!isValid(body, { dataType: "object" } || !isValid(userId))) {
         throw new Error(`UserId or user data is invalid`);
       }
-      const user = await UserService.update(userId, body);
+
+      const {
+        data: {
+          user: { _id: existingUserId },
+        },
+      } = await UserService.findById(userId);
+      if (role !== "admin") {
+        return res.status(401).json({
+          success: false,
+          message: "Unauthorized",
+        });
+      }
+      if (existingUserId !== userId) {
+        return res.status(401).json({
+          success: false,
+          message: "must be author or admin",
+        });
+      }
+      const { data, error } = await UserService.update(userId, body);
+
+      if (error) {
+        return res.status(404).json({
+          success: false,
+          message: error.message,
+        });
+      }
 
       res.status(200).json({
         success: true,
         message: "User successfully updated",
-        data: user.toJSON(),
+        data: data.toJSON(),
       });
     } catch (error) {
       next(error);
@@ -133,11 +188,42 @@ export class UserController {
   // Eliminar usuario
   static async delete(req, res, next) {
     try {
-      await UserService.delete(req.params.id);
+      const { error, data } = await UserService.delete(req.params.id);
 
-      res.status(200).json({
+      if (error) {
+        return res.status(404).json({
+          success: false,
+          message: error.message,
+          data,
+        });
+      }
+
+      return res.status(200).json({
         success: true,
         message: "User successfully deleted",
+        data,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async deleteByEmail(req, res, next) {
+    try {
+      const { error, data } = await UserService.deleteByEmail(req.params.email);
+
+      if (error) {
+        return res.status(404).json({
+          success: false,
+          message: error.message,
+          data,
+        });
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: "User successfully deleted",
+        data,
       });
     } catch (error) {
       next(error);

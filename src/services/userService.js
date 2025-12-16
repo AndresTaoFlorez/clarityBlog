@@ -5,37 +5,31 @@ import bcrypt from "bcrypt";
 import { isValid } from "../utils/validator.ts";
 
 export class UserService {
-  // Crear usuario
   static async create(userData) {
     try {
-      const user = new User(userData);
-
+      const user = User.create(userData);
       if (!user.isValid()) {
         throw new Error("Invalid user data");
       }
-
-      // Hash de la contraseña
+      // generate password hash
       const hashedPassword = await bcrypt.hash(user.password, 10);
+      user.setPassword(hashedPassword);
 
-      // Insertar en tabla 'users' de Supabase
+      const insertionData = user.toInsert();
+
+      // Insert into users db table
       const { data: newUser, error: userError } = await db
         .from("users")
-        .insert([
-          {
-            name: user.nombre,
-            email: user.correo,
-            password: hashedPassword,
-            avatar: user.avatar,
-            role: user.role || "user",
-            bio: user.bio,
-          },
-        ])
-        .select()
+        .insert(insertionData)
+        .select("*")
+        .is("deleted_at", null)
         .single();
 
-      if (userError) throw userError;
+      if (userError) {
+        return { error: { message: userError } };
+      }
 
-      return User.fromDatabase(newUser);
+      return { error: false, data: User.fromDatabase(newUser) };
     } catch (error) {
       throw new Error(
         `Error while trying to create the user: ${error.message}`,
@@ -50,15 +44,24 @@ export class UserService {
         throw new Error(`Id is required or invalid ${id.toString()}`);
       }
 
-      const { data: userData, error: userError } = await db
+      const { data, error } = await db
         .from("users")
         .select("*")
         .eq("id", id)
+        .is("deleted_at", null)
         .single();
 
-      if (userError) throw userError;
+      if (!isValid(data?._id || data?.id)) {
+        return {
+          error: {
+            message: "User not found",
+          },
+        };
+      }
 
-      return User.fromDatabase(userData);
+      if (error) throw error;
+
+      return { error: false, data: User.fromDatabase(data) };
     } catch (error) {
       throw new Error(`Searching user by id error: ${error.message}`);
     }
@@ -67,16 +70,23 @@ export class UserService {
   // Obtener usuario por email con su descripción
   static async findByEmail(email) {
     try {
-      const { data: userData, error: userError } = await db
+      const { data, error, count } = await db
         .from("users")
-        .select("*")
-        .eq("email", email)
-        .single();
+        .select("*", { count: "exact" })
+        .eq("email", email);
 
-      if (userError && userError.code !== "PGRST116") throw userError;
-      if (!userData) return null;
+      const firstUser = count === 0 ? {} : User.fromDatabase(data[0]);
+      if (!isValid(firstUser)) {
+        return {
+          error: {
+            message: "User not found",
+          },
+        };
+      }
 
-      return User.fromDatabase(userData);
+      if (error) throw error;
+
+      return { error: false, data: User.fromDatabaseList(data), firstUser };
     } catch (error) {
       throw new Error(`Searching user by email error: ${error.message}`);
     }
@@ -90,21 +100,27 @@ export class UserService {
       // Obtener usuarios
       const {
         data: usersData,
-        error: usersError,
+        error,
         count,
       } = await db
         .from("users")
         .select("*", { count: "exact" })
         .order("created_at", { ascending: false })
-        .range(offset, offset + limit - 1);
+        .range(offset, offset + limit - 1)
+        .is("deleted_at", null);
 
-      if (usersError) throw usersError;
+      if (error) {
+        return { error: { message: error } };
+      }
 
       return {
-        users: User.fromDatabaseList(usersData),
-        total: count,
-        page,
-        pages: Math.ceil(count / limit),
+        error: false,
+        data: {
+          users: User.fromDatabaseList(usersData),
+          total: count,
+          page,
+          pages: Math.ceil(count / limit),
+        },
       };
     } catch (error) {
       throw new Error(`Retrieving users error: ${error.message}`);
@@ -122,19 +138,26 @@ export class UserService {
 
       updateData.updated_at = new Date().toISOString();
 
-      console.log(updateData);
-
       // Actualizar usuario
-      const { data: updatedUser, error: userError } = await db
+      const { data, error } = await db
         .from("users")
         .update(updateData)
         .eq("id", id)
-        .select()
+        .select("*")
+        .is("deleted_at", null)
         .single();
 
-      if (userError) throw userError;
+      if (!isValid(data?._id || data?.id)) {
+        return {
+          error: {
+            message: "User not found",
+          },
+        };
+      }
 
-      return User.fromDatabase(updatedUser);
+      if (error) throw error;
+
+      return { error: false, data: User.fromDatabase(data) };
     } catch (error) {
       throw new Error(`Updating user error: ${error.message}`);
     }
@@ -143,11 +166,51 @@ export class UserService {
   // Eliminar usuario (CASCADE eliminará también userdescriptions, articles y comments)
   static async delete(id) {
     try {
-      const { error } = await db.from("users").delete().eq("id", id);
+      const { data, error } = await db
+        .from("users")
+        .update({ deleted_at: new Date().toISOString() })
+        .select("*")
+        .eq("id", id)
+        .is("deleted_at", null)
+        .single();
+
+      if (!isValid(data?._id || data?.id)) {
+        return {
+          error: {
+            message: "User not found",
+          },
+        };
+      }
 
       if (error) throw error;
 
-      return true;
+      return { error: false, data: User.fromDatabase(data) };
+    } catch (error) {
+      throw new Error(`Deleting user error: ${error.message}`);
+    }
+  }
+
+  static async deleteByEmail(email) {
+    try {
+      const { data, error } = await db
+        .from("users")
+        .update({ deleted_at: new Date().toISOString() })
+        .select("*")
+        .eq("email", email)
+        .is("deleted_at", null)
+        .single();
+
+      if (!isValid(data?.email)) {
+        return {
+          error: {
+            message: "User not found",
+          },
+        };
+      }
+
+      if (error) throw error;
+
+      return { error: false, data: User.fromDatabase(data) };
     } catch (error) {
       throw new Error(`Deleting user error: ${error.message}`);
     }
@@ -159,11 +222,14 @@ export class UserService {
       const { data: usersData, error: usersError } = await db
         .from("users")
         .select("*")
-        .or(`name.ilike.%${query}%,email.ilike.%${query}%`);
+        .or(`name.ilike.%${query}%,email.ilike.%${query}%`)
+        .is("deleted_at", null);
 
-      if (usersError) throw usersError;
+      if (usersError) {
+        return { error: { message: error } };
+      }
 
-      return usersData;
+      return { error: false, data: usersData };
     } catch (error) {
       throw new Error(`Searching user error: ${error.message}`);
     }

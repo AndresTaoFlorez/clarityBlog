@@ -61,4 +61,11 @@ router.put("/:id", authenticate, UserController.update);
  */
 router.delete("/:id", authenticate, authorizeAdmin, UserController.delete);
 
+/**
+ * @route   DELETE /api/users/email/:email
+ * @desc    Eliminar User
+ * @access  Private (solo admin)
+ */
+router.delete("/email/:email", authenticate, authorizeAdmin, UserController.deleteByEmail);
+
 export default router;
