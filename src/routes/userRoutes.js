@@ -1,7 +1,7 @@
 // backend/src/routes/userRoutes.js
 import express from "express";
 import { UserController } from "../controllers/userController.js";
-import { authenticate, authorizeAdmin } from "../middlewares/authMiddleware.js";
+import { authenticate, authorizeAdmin } from "../middlewares/authMiddleware.ts";
 
 const router = express.Router();
 
@@ -21,51 +21,56 @@ router.get("/search", UserController.search);
 
 /**
  * @route   POST /api/users
- * @desc    Crear User
+ * @desc    Create User
  * @access  Private (solo admin)
  */
 router.post("/", authenticate, authorizeAdmin, UserController.create);
 
 /**
  * @route   GET /api/users
- * @desc    Obtener todos los users con paginación
+ * @desc    Get all users with pagination
  * @access  Public
  */
 router.get("/", UserController.getAll);
 
 /**
  * @route   GET /api/users/:id
- * @desc    Obtener  User por ID
+ * @desc    Get User by ID
  * @access  Public
  */
 router.get("/:id", UserController.getById);
 
 /**
  * @route   GET /api/users/email/:email
- * @desc    Obtener  User por ID
+ * @desc    Get Uesr by email
  * @access  Public
  */
 router.get("/email/:email", UserController.getByEmail);
 
 /**
  * @route   PUT /api/users/:id
- * @desc    Actualizar User
+ * @desc    Update User
  * @access  Private (solo el  User mismo o admin)
  */
 router.put("/:id", authenticate, UserController.update);
 
 /**
  * @route   DELETE /api/users/:id
- * @desc    Eliminar User
+ * @desc    Delete User by id
  * @access  Private (solo admin)
  */
 router.delete("/:id", authenticate, authorizeAdmin, UserController.delete);
 
 /**
  * @route   DELETE /api/users/email/:email
- * @desc    Eliminar User
+ * @desc    Delete User by email
  * @access  Private (solo admin)
  */
-router.delete("/email/:email", authenticate, authorizeAdmin, UserController.deleteByEmail);
+router.delete(
+  "/email/:email",
+  authenticate,
+  authorizeAdmin,
+  UserController.deleteByEmail,
+);
 
 export default router;

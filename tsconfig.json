@@ -1,0 +1,33 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "moduleResolution": "bundler",
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "strict": true,
+    "exactOptionalPropertyTypes": false,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "allowJs": true,
+    "forceConsistentCasingInFileNames": true,
+    // Allows writing .ts extensions in imports (only during development with ts-node)
+    "allowImportingTsExtensions": true,
+    // Prevents emitting JS if there are type errors
+    "noEmitOnError": true,
+    // Required for full ESM compatibility (helps with package.json "exports" and self-references)
+    "resolveJsonModule": true,
+    // Important: Emit JS files (you want this for production build)
+    "noEmit": true
+  },
+  "include": [
+    "src/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist"
+  ],
+  "ts-node": {
+    "esm": true,
+    "experimentalSpecifierResolution": "node" // Helps ts-node resolve imports like Node
+  }
+}

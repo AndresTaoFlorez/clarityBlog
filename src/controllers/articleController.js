@@ -1,22 +1,19 @@
-// backend/src/controllers/noteController.js
+// backend/src/controllers/articleController.js
 import { ArticleService } from "../services/ArticleService.js";
-import { isValid } from "../utils/validator.ts";
+import { isValid, merge } from "../utils/validator.ts";
 
 export class ArticleController {
   // Create article
   static async create(req, res, next) {
     try {
-      const noteData = {
-        ...req.body,
-        userId: req.user.id,
-      };
+      const articleData = merge(req.body, { userId: req.user.id });
 
-      const note = await ArticleService.create(noteData);
+      const article = await ArticleService.create(articleData);
 
       res.status(201).json({
         success: true,
         message: "Article created successfully",
-        data: note.toJSON(),
+        data: article.toJSON(),
       });
     } catch (error) {
       next(error);
@@ -181,18 +178,19 @@ export class ArticleController {
   // Update article
   static async update(req, res, next) {
     try {
-      const newArtileData = req.body;
-      if (!isValid(newArtileData)) {
+      const articleData = req.body;
+      const { articleId } = req.params.id;
+      if (!isValid(articleData)) {
         return res.status(400).json({
           success: false,
           message: "new article content is invalid",
         });
       }
 
-      const article = await ArticleService.findById(req.params.id);
+      const { data, error } = await ArticleService.update(articleData);
 
-      if (!article) {
-        return res.status(404).json({
+      if (error) {
+        return res.status(error?.code || 400).json({
           success: false,
           message: "Article not found",
         });

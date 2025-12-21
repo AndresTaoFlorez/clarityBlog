@@ -1,6 +1,6 @@
 // backend/src/services/authService.js
 import { equal, isValid } from "../utils/validator.ts";
-import { UserService } from "./userService.js";
+import { UserService } from "./UserService.ts";
 import jwt from "jsonwebtoken";
 
 export class AuthService {

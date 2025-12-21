@@ -1,58 +1,58 @@
 // backend/src/routes/articleRoutes.js
 import express from "express";
-import { ArticleController } from "../controllers/articleController.js";
-import { CommentController } from "../controllers/commentController.js";
-import { authenticate } from "../middlewares/authMiddleware.js";
+// import { ArticleController } from "../controllers/articleController.js";
+import { ArticleController } from "../controllers/articleController.ts";
+import { authenticate } from "../middlewares/authMiddleware.ts";
 
 const router = express.Router();
 
 /**
  * @route   POST /api/articles/
- * @desc    Crear nueva nota/artículo
+ * @desc    Create new article
  * @access  Private
  */
 router.post("/", authenticate, ArticleController.create);
 
 /**
  * @route   GET /api/articles/
- * @desc    Obtener todas las /articles/artículos
+ * @desc    Get all articles
  * @access  Public
  */
 router.get("/", ArticleController.getAll);
 
-/**
- * @route   GET /api/articles/search
- * @desc    Buscar /articles/artículos
- * @access  Public
- */
-router.get("/search", ArticleController.search);
+// /**
+//  * @route   GET /api/articles/search
+//  * @desc    Search /articles/artículos
+//  * @access  Public
+//  */
+// router.get("/search", ArticleController.search);
+
+// /**
+//  * @route   GET /api/articles/userId/:userId
+//  * @desc    Get articles by user ID
+//  * @access  Public
+//  */
+router.get("/userId/:userId", ArticleController.getByUserId);
 
 /**
- * @route   GET /api/articles/usuario/:userId
- * @desc    Obtener /articles de un usuario específico
+ * @route   GET /api/articles/:articleId
+ * @desc    Get article by Id
  * @access  Public
  */
-router.get("/user/:userId", ArticleController.getByUserId);
-
-/**
- * @route   GET /api//rticles/:id
- * @desc    Obtener nota/artículo por ID
- * @access  Public
- */
-router.get("/:id", ArticleController.getById);
+router.get("/:articleId", ArticleController.getById);
 
 /**
  * @route   PUT /api/articles/:id
- * @desc    Actualizar nota/artículo
- * @access  Private (solo el autor o admin)
+ * @desc    Update article by Id
+ * @access  Private (only author or admin user role)
  */
-router.put("/:id", authenticate, ArticleController.update);
+router.put("/:articleId", authenticate, ArticleController.update);
 
-/**
- * @route   DELETE /api//articles/:id
- * @desc    Eliminar nota/artículo
- * @access  Private (solo el autor o admin)
- */
-router.delete("/:id", authenticate, ArticleController.delete);
+// /**
+//  * @route   DELETE /api//articles/:id
+//  * @desc    Delete article
+//  * @access  Private (solo el autor o admin)
+//  */
+// router.delete("/:id", authenticate, ArticleController.delete);
 
 export default router;

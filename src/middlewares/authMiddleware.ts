@@ -1,9 +1,14 @@
 // backend/src/middlewares/authMiddleware.js
-import { AuthService } from "../services/authService.js";
-import { User } from "../models/User.js";
+import { AuthService } from "../services/authService.ts";
+import { User } from "../models/User.ts";
 import { merge } from "../utils/validator.ts";
+import type { Request, Response, NextFunction } from "express";
 
-export const authenticate = async (req, res, next) => {
+export const authenticate = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
   try {
     const authHeader = req.headers.authorization;
 
@@ -28,8 +33,12 @@ export const authenticate = async (req, res, next) => {
   }
 };
 
-export const authorizeAdmin = (req, res, next) => {
-  if (req.user.role !== "admin") {
+export const authorizeAdmin = (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  if (req.user?.role !== "admin") {
     return res.status(403).json({
       success: false,
       message: "Access denied. Administrator permissions are required.",

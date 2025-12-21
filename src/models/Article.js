@@ -1,4 +1,5 @@
 // backend/src/models/Note.js
+
 // Modelo de Nota/Artículo que mapea entre Supabase (articles) y Frontend
 export class Article {
   constructor(data) {

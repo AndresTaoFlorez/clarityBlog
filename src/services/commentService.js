@@ -1,4 +1,4 @@
-// backend/src/services/commentService.js
+// /backend/src/services/commentService.js
 import { db } from "../config/database.js";
 import { Comment } from "../models/Comment.js";
 import { User } from "../models/User.js";

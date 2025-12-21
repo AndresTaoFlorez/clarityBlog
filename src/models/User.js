@@ -1,11 +1,12 @@
 // backend/src/models/User.js
 // Modelo de Usuario que mapea entre Supabase (users) y Frontend
 
+import { equal } from "../utils/validator.ts";
+
 export class User {
   constructor(data) {
-    // Mapear desde DB (Supabase usa: name, email, password, role, avatar)
-    // Frontend espera: name, email, password, rol, avatar
-    this.id = data.id || null;
+    // Mapear desde DB (Supabase usa: name, email, password, role, avatar) // Frontend espera: name, email, password, rol, avatar
+    this.id = data.id || data._id || null;
     this.name = data.name || "";
     this.email = data.email || "";
     this.password = data.password || "";
@@ -17,6 +18,9 @@ export class User {
       data.created_at || data.createdAt || new Date().toISOString();
     this.updated_at =
       data.updated_at || data.updatedAt || new Date().toISOString();
+    this.token = data.token || null;
+    this.iat = data.iat || null;
+    this.exp = data.exp || null;
   }
 
   setPassword(password) {
@@ -36,7 +40,17 @@ export class User {
       deleted_at: this.deleted_at,
       createdAt: this.created_at,
       updatedAt: this.updated_at,
+      token: this.token || null,
     };
+  }
+
+  /**
+   *
+   * @param {Object} param.resourceId Resource to edit like Article, Comment, etc
+   * @returns {Boolean}
+   */
+  isAuthorized({ resourceId }) {
+    return equal(this.id, resourceId);
   }
 
   // update - prepare data to supabase
