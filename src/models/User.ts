@@ -25,6 +25,8 @@ export interface UserInput {
   updatedAt?: string;
 
   token?: string | null;
+  token_version?: number;
+  tokenVersion?: number;
   iat?: number | null;
   exp?: number | null;
 }
@@ -76,6 +78,8 @@ export class User {
   public created_at: string;
   public updated_at: string;
   public token: string | null;
+  public tokenVersion: number;
+
   public iat: number | null;
   public exp: number | null;
 
@@ -93,6 +97,7 @@ export class User {
     this.updated_at =
       data.updated_at ?? data.updatedAt ?? new Date().toISOString();
     this.token = data.token ?? null;
+    this.tokenVersion = data.tokenVersion ?? data.token_version ?? 0;
     this.iat = data.iat ?? null;
     this.exp = data.exp ?? null;
   }
@@ -179,20 +184,6 @@ export class User {
     return new User(filtered);
   }
 
-  static fromDatabaseToArticle(dbUser: any): {
-    userId: string | number;
-    authorName: string;
-    authorAvatar: string;
-    authorEmail: string;
-  } {
-    return {
-      userId: dbUser.userId ?? dbUser.user_id,
-      authorName: dbUser.name,
-      authorAvatar: dbUser.avatar,
-      authorEmail: dbUser.email,
-    };
-  }
-
   /**
    * Map Supabase row → User model
    */
@@ -205,6 +196,7 @@ export class User {
       role: dbUser.role,
       avatar: dbUser.avatar,
       bio: dbUser.bio,
+      tokenVersion: dbUser.token_version,
       deleted_at: dbUser.deleted_at,
       created_at: dbUser.created_at,
       updated_at: dbUser.updated_at,

@@ -5,13 +5,6 @@ import { authenticate, authorizeAdmin } from "../middlewares/authMiddleware.ts";
 
 const router = express.Router();
 
-// /**
-//  * @route   GET /api/users/profile
-//  * @desc    Obtener perfil del usuario autenticado
-//  * @access  Private
-//  */
-// router.get("/profile", authenticate, UserController.getProfile);
-
 /**
  * @route   GET /api/users/search
  * @desc    Search user
@@ -19,13 +12,6 @@ const router = express.Router();
  * @example /api/users/search?q=<search-term>&page=1&limit=5
  */
 router.get("/search", UserController.search);
-
-// /**
-//  * @route   POST /api/users
-//  * @desc    Create User
-//  * @access  Private (solo admin)
-//  */
-// router.post("/", authenticate, authorizeAdmin, UserController.create);
 
 /**
  * @route   GET /api/users
@@ -39,21 +25,21 @@ router.get("/", UserController.getAll);
  * @desc    Get User by ID
  * @access  Public
  */
-router.get("/:userId", UserController.getById);
+router.get("/userId/:userId", UserController.getById);
 
-// /**
-//  * @route   GET /api/users/email/:email
-//  * @desc    Get Uesr by email
-//  * @access  Public
-//  */
-// router.get("/email/:email", UserController.getByEmail);
+/**
+ * @route   GET /api/users/email/:email
+ * @desc    Get Uesr by email
+ * @access  Public
+ */
+router.get("/email/:email", UserController.getByEmail);
 
-// /**
-//  * @route   PUT /api/users/:id
-//  * @desc    Update User
-//  * @access  Private (solo el  User mismo o admin)
-//  */
-// router.put("/:id", authenticate, UserController.update);
+/**
+ * @route   PUT /api/users/:id
+ * @desc    Update User
+ * @access  Private (solo el  User mismo o admin)
+ */
+router.put("/userId/:userId", authenticate, UserController.update);
 
 // /**
 //  * @route   DELETE /api/users/:id

@@ -78,10 +78,13 @@ export class UserService {
    * @param id - The user's ID
    * @returns ServiceResponse with user data
    */
-  static async findById(id: string): Promise<ServiceResponse<User>> {
+  static async findById(
+    id: string,
+    role: string = "user",
+  ): Promise<ServiceResponse<User>> {
     try {
       const { data, error } = await db
-        .from("users")
+        .from(role === "admin" ? "users" : "users_active")
         .select("*")
         .eq("id", id)
         .is("deleted_at", null)
@@ -116,35 +119,33 @@ export class UserService {
    * @param email - The user's email
    * @returns ServiceResponse with user data
    */
-  static async findByEmail(email: string): Promise<ServiceResponse<User>> {
+  static async findByEmail(
+    email: string,
+    role: string = "user",
+  ): Promise<ServiceResponse<User>> {
     try {
-      const { data, error, count } = await db
-        .from("users")
-        .select("*", { count: "exact" })
+      const { data, error } = await db
+        .from(role === "admin" ? "users" : "users_active")
+        .select("*")
         .eq("email", email)
-        .is("deleted_at", null);
+        .is("deleted_at", null)
+        .single();
 
       if (error) {
-        console.error("Database error fetching user by email:", error);
         return ServiceResponse.error(
           [],
           `Failed to fetch user: ${error.message}`,
         );
       }
 
-      if (!data || data.length === 0 || count === 0) {
+      if (!isValid(data) || data?.length === 0) {
         return ServiceResponse.error([], "User not found");
       }
 
-      const firstUser = User.fromDatabase(data[0]);
+      const user = User.fromDatabase(data);
 
-      if (!isValid(firstUser)) {
-        return ServiceResponse.error([], "User not found");
-      }
-
-      return ServiceResponse.ok([firstUser], "User retrieved successfully");
+      return ServiceResponse.ok([user], "User retrieved successfully");
     } catch (error) {
-      console.error("Error in UserService.findByEmail:", error);
       return ServiceResponse.error(
         [],
         error instanceof Error
@@ -159,15 +160,15 @@ export class UserService {
    * @param params - Pagination parameters
    * @returns ServiceResponse with paginated users
    */
-  static async findAll({
-    page = 1,
-    limit = 10,
-  }: PaginationParams = {}): Promise<ServiceResponse<PaginatedUsers>> {
+  static async findAll(
+    { page = 1, limit = 10 }: PaginationParams = {},
+    role: string = "user",
+  ): Promise<ServiceResponse<PaginatedUsers>> {
     try {
       const offset = (page - 1) * limit;
 
       const { data, error, count } = await db
-        .from("users_active")
+        .from(role === "admin" ? "users" : "users_active")
         .select("*", { count: "exact" })
         .order("created_at", { ascending: false })
         .range(offset, offset + limit - 1);
@@ -225,24 +226,24 @@ export class UserService {
   static async update(
     id: string,
     userData: Partial<UserData> = {},
+    role: string = "user",
   ): Promise<ServiceResponse<User>> {
     try {
       const updateData: any = { ...userData };
 
       if (userData.password) {
-        // If password is being updated, hash it
         updateData.password = await bcrypt.hash(userData.password, 10);
       }
 
-      updateData.updated_at = new Date().toISOString();
+      if (role !== "admin" && "deleted_at" in updateData) {
+        delete updateData.deleted_at;
+      }
 
-      // Update user
       const { data, error } = await db
         .from("users")
         .update(updateData)
         .eq("id", id)
         .select("*")
-        .is("deleted_at", null)
         .single();
 
       if (error) {
@@ -400,6 +401,30 @@ export class UserService {
           ? error.message
           : "An unexpected error occurred while searching users",
       );
+    }
+  }
+
+  /**
+   * Increment user's token version (invalidate all tokens)
+   */
+  static async incrementTokenVersion(
+    userId: string,
+  ): Promise<ServiceResponse<User>> {
+    try {
+      const { data, error } = await db
+        .rpc("increment_token_version", { user_id: userId })
+        .single();
+
+      if (error) {
+        return ServiceResponse.error([], "Failed to increment token version");
+      }
+
+      return ServiceResponse.ok(
+        [User.fromDatabase(data)],
+        "Token version updated",
+      );
+    } catch (error: any) {
+      return ServiceResponse.error([], error.message);
     }
   }
 

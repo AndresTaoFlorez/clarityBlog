@@ -47,7 +47,8 @@ export const isValid = (
       | "function"
       | "date"
       | "uuid"
-      | "query";
+      | "query"
+      | "email";
     allowEmpty?: boolean;
     deep?: boolean;
   } = {},
@@ -100,6 +101,10 @@ export const isValid = (
         if (value.length > 100) return false;
         if (/[%;'"]/.test(value)) return false; // Reject SQL injection chars
         return true;
+
+      case "email":
+        if (typeof value !== "string") return false;
+        return validateEmail(value);
 
       default:
         return false;
@@ -378,3 +383,161 @@ function mergeObjects(objects: any[], deep: boolean, allowEmpty: boolean): any {
 
   return result;
 }
+
+/**
+ * Validates if a password meets security requirements
+ *
+ * @param password - The password string to validate
+ * @param options - Configuration options for password validation
+ * @param options.minLength - Minimum password length (default: 8)
+ * @param options.maxLength - Maximum password length (default: 128)
+ * @param options.requireUppercase - Require at least one uppercase letter (default: true)
+ * @param options.requireLowercase - Require at least one lowercase letter (default: true)
+ * @param options.requireNumbers - Require at least one number (default: true)
+ * @param options.requireSpecialChars - Require at least one special character (default: true)
+ * @param options.specialChars - Custom special characters to allow (default: @$!%*?&#^()_+=\-[\]{};:'"<>.,/\\|`~)
+ * @param options.preventCommon - Reject common/weak passwords (default: true)
+ *
+ * @returns Object with `isValid` boolean and `errors` array of error messages
+ *
+ * @example
+ * ```typescript
+ * const result = isSecurePassword("MyP@ssw0rd!");
+ * if (!result.isValid) {
+ *   console.log(result.errors); // ["Password is too common"]
+ * }
+ * ```
+ */
+export const isSecurePassword = (
+  password: string | undefined,
+  options: {
+    minLength?: number;
+    maxLength?: number;
+    requireUppercase?: boolean;
+    requireLowercase?: boolean;
+    requireNumbers?: boolean;
+    requireSpecialChars?: boolean;
+    specialChars?: string;
+    preventCommon?: boolean;
+  } = {},
+): { isValid: boolean; errors: string[] } => {
+  const {
+    minLength = 8,
+    maxLength = 128,
+    requireUppercase = true,
+    requireLowercase = true,
+    requireNumbers = true,
+    requireSpecialChars = true,
+    specialChars = "@$!%*?&#^()_+=\\-[\\]{};:'\"<>.,/\\\\|`~",
+    preventCommon = true,
+  } = options;
+
+  const errors: string[] = [];
+
+  // Basic checks
+  if (!password || typeof password !== "string") {
+    errors.push("Password is required");
+    return { isValid: false, errors };
+  }
+
+  // Length validation
+  if (password.length < minLength) {
+    errors.push(`Password must be at least ${minLength} characters long`);
+  }
+
+  if (password.length > maxLength) {
+    errors.push(`Password must not exceed ${maxLength} characters`);
+  }
+
+  // Uppercase validation
+  if (requireUppercase && !/[A-Z]/.test(password)) {
+    errors.push("Password must contain at least one uppercase letter");
+  }
+
+  // Lowercase validation
+  if (requireLowercase && !/[a-z]/.test(password)) {
+    errors.push("Password must contain at least one lowercase letter");
+  }
+
+  // Number validation
+  if (requireNumbers && !/\d/.test(password)) {
+    errors.push("Password must contain at least one number");
+  }
+
+  // Special character validation
+  if (requireSpecialChars) {
+    const specialCharsRegex = new RegExp(`[${specialChars}]`);
+    if (!specialCharsRegex.test(password)) {
+      errors.push("Password must contain at least one special character");
+    }
+  }
+
+  // Common password check
+  if (preventCommon) {
+    const commonPasswords = [
+      "password",
+      "123456",
+      "12345678",
+      "qwerty",
+      "abc123",
+      "monkey",
+      "letmein",
+      "trustno1",
+      "dragon",
+      "baseball",
+      "iloveyou",
+      "master",
+      "sunshine",
+      "ashley",
+      "bailey",
+      "passw0rd",
+      "shadow",
+      "123123",
+      "654321",
+      "superman",
+      "password1",
+      "password123",
+      "admin",
+      "welcome",
+      "login",
+    ];
+
+    const lowerPassword = password.toLowerCase();
+    if (commonPasswords.some((common) => lowerPassword.includes(common))) {
+      errors.push("Password is too common or easily guessable");
+    }
+  }
+
+  // Sequential characters check
+  if (/(.)\1{2,}/.test(password)) {
+    errors.push(
+      "Password should not contain repeated characters (e.g., 'aaa', '111')",
+    );
+  }
+
+  // Sequential patterns check
+  const sequences = [
+    "abc",
+    "bcd",
+    "cde",
+    "def",
+    "123",
+    "234",
+    "345",
+    "456",
+    "567",
+    "678",
+    "789",
+  ];
+  const lowerPassword = password.toLowerCase();
+  if (sequences.some((seq) => lowerPassword.includes(seq))) {
+    errors.push(
+      "Password should not contain sequential patterns (e.g., 'abc', '123')",
+    );
+  }
+
+  return {
+    isValid: errors.length === 0,
+    errors,
+  };
+};

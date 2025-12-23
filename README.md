@@ -25,7 +25,7 @@ Route for consume user's info (items limit by page = 5).
 
 - `/api/users`: Get all users with pagination.
 - `/api/search`: Search user by email or name.
-- `/api/:userId`: Searc user by user ID.
+- `/api/userId/:userId`: Searc user by user ID.
 
 ### Articles
 Route for consume and interact with articles (CRUD). Take in account user admind and user author.

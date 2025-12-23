@@ -1,8 +1,19 @@
-// backend/src/middlewares/authMiddleware.js
-import { AuthService } from "../services/authService.ts";
+// backend/src/middlewares/authMiddleware.ts
+import { AuthService } from "../services/AuthService.ts";
+import { UserService } from "../services/UserService.ts";
 import { User } from "../models/User.ts";
 import { merge } from "../utils/validator.ts";
+import { TokenBlacklist } from "../services/redis-client.ts";
 import type { Request, Response, NextFunction } from "express";
+
+// Extend Express Request to include user
+declare global {
+  namespace Express {
+    interface Request {
+      user?: User;
+    }
+  }
+}
 
 export const authenticate = async (
   req: Request,
@@ -10,8 +21,8 @@ export const authenticate = async (
   next: NextFunction,
 ) => {
   try {
+    // 1. Extract token
     const authHeader = req.headers.authorization;
-
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
       return res.status(401).json({
         success: false,
@@ -20,15 +31,50 @@ export const authenticate = async (
     }
 
     const token = authHeader.substring(7);
+
+    // 2. Check if token is blacklisted (recent logout)
+    const isBlacklisted = await TokenBlacklist.isBlacklisted(token);
+    if (isBlacklisted) {
+      return res.status(401).json({
+        success: false,
+        message: "Token has been revoked",
+      });
+    }
+
+    // 3. Verify token signature and expiration
     const decoded = AuthService.verifyToken(token);
 
-    const user = User.create(merge(decoded, { token }));
+    // 4. Fetch user and verify token version
+    const userResponse = await UserService.findById(decoded.id);
+
+    if (!userResponse.success) {
+      return res.status(401).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    const dbUser = userResponse.data[0];
+
+    // 5. Check if token version matches
+    if (dbUser.tokenVersion !== decoded.tokenVersion) {
+      return res.status(401).json({
+        success: false,
+        message: "Token has been invalidated. Please login again.",
+      });
+    }
+
+    // 6. Attach user to request
+    const user = User.create(
+      merge(decoded, { token, tokenVersion: dbUser.tokenVersion }),
+    );
     req.user = user;
+
     next();
-  } catch (error) {
+  } catch (error: any) {
     return res.status(401).json({
       success: false,
-      message: "Invalid or expired token",
+      message: error.message || "Invalid or expired token",
     });
   }
 };

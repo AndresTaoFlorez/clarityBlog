@@ -253,6 +253,12 @@ export interface Database {
           deleted_at: string | null;
         }>;
       };
+      increment_token_version: {
+        Args: {
+          user_id: string; // change to uuid if needed
+        };
+        Returns: Database["public"]["Tables"]["users"]["Row"];
+      };
     };
 
     Enums: {

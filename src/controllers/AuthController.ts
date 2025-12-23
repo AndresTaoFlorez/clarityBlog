@@ -1,6 +1,6 @@
 // backend/src/controllers/authController.ts
 import type { Request, Response, NextFunction } from "express";
-import { AuthService } from "../services/authService.ts";
+import { AuthService } from "../services/AuthService.ts";
 import { User } from "../models/User.ts";
 import { UserService } from "../services/UserService.ts";
 import { ControllerResponse } from "../utils/ControllerResponse.ts";
