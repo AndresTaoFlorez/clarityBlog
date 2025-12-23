@@ -10,7 +10,6 @@ Learning backend API project to serve data to blog application, users, articles 
 ## Tech Stack
 - TypeSript & JavaScript
 - JWT to authentication
-- Redux for complex state management
 
 ## Routes
 
