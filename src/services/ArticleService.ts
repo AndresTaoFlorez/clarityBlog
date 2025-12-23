@@ -57,6 +57,59 @@ export class ArticleService {
       );
     }
   }
+
+  static async delete(articleId: string): Promise<ServiceResponse<Article>> {
+    try {
+      const { data, error } = await db
+        .from("articles_with_details")
+        .delete()
+        .eq("id", articleId)
+        .select("*")
+        .single();
+
+      if (error) {
+        return ServiceResponse.error(
+          [],
+          `Article to delete not found: ${error.message}`,
+        );
+      }
+
+      const article = Article.fromDatabase(data);
+
+      return ServiceResponse.ok([article], "Article deleted successfully");
+    } catch (error) {
+      return ServiceResponse.error(
+        [],
+        error instanceof Error
+          ? error.message
+          : "An unexpencted error ocurred while deleting articles",
+      );
+    }
+  }
+
+  static async hardDelete(
+    articleId: string,
+  ): Promise<ServiceResponse<Article>> {
+    try {
+      const { error } = await db.rpc("hard_delete_article", {
+        p_article_id: articleId,
+      });
+
+      if (error) {
+        return ServiceResponse.error([], "Article to delete not found");
+      }
+
+      return ServiceResponse.ok([], "Article deleted successfully");
+    } catch (error) {
+      return ServiceResponse.error(
+        [],
+        error instanceof Error
+          ? error.message
+          : "An unexpencted error ocurred while deleting articles",
+      );
+    }
+  }
+
   static async findAll({ page = 1, limit = 5 }: PaginationParams = {}): Promise<
     ServiceResponse<PaginatedArticles>
   > {
@@ -119,6 +172,10 @@ export class ArticleService {
         .eq("id", articleId)) as GetArticlesResponse;
       if (error) {
         return ServiceResponse.error([], error.message);
+      }
+
+      if (!data || data.length === 0) {
+        return ServiceResponse.error([], "Article not found");
       }
 
       const article = Article.fromDatabase(data![0]);
@@ -235,43 +292,68 @@ export class ArticleService {
     }
   }
 
-  /**
-   * Transform raw database article data into clean format
-   * @param data - Raw database articles
-   * @returns Transformed articles
-   */
-  private static transformArticleData(data: any[]): any[] {
-    return data.map((article) => {
-      // Extract and flatten categories from junction table
-      const categories =
-        article.articles_categories?.map((ac: any) => ac.article_categories) ||
-        [];
+  static async search(
+    searchTerm: string,
+    { page = 1, limit = 5 }: PaginationParams = {},
+  ): Promise<ServiceResponse<PaginatedArticles>> {
+    try {
+      if (!searchTerm || searchTerm.trim() === "") {
+        return ServiceResponse.error([], "Search term is required");
+      }
 
-      // Extract user fields if available
-      const userFields = article.users
-        ? {
-            user_name: article.users.name,
-            user_avatar: article.users.avatar,
-            user_email: article.users.email,
-          }
-        : {};
+      const offset = (page - 1) * limit;
 
-      // Build the clean article using merge (deep merge, allow empty values)
-      return merge(
-        article, // base article data
-        { categories }, // add flattened categories
-        userFields, // add user info
-        {
-          // Explicitly remove nested objects to clean the response
-          users: undefined,
-          articles_categories: undefined,
-        },
-        {
-          deep: true,
-          allowEmpty: false, // optional: skip null/undefined/empty strings
-        },
+      const { data, error } = await db
+        .rpc("search_articles", {
+          p_search_term: searchTerm.trim(),
+        })
+        .range(offset, offset + limit - 1);
+
+      const { data: allResults } = await db.rpc("search_articles", {
+        p_search_term: searchTerm.trim(),
+      });
+
+      const count = allResults?.length || 0;
+
+      if (error) {
+        return ServiceResponse.error(
+          [],
+          `Failed to search articles: ${error.message}`,
+        );
+      }
+
+      if (!data || data.length === 0) {
+        return ServiceResponse.ok([
+          {
+            articles: [],
+            total: 0,
+            page,
+            pages: 0,
+          },
+        ]);
+      }
+
+      const articlesWithAuthors = Article.fromDatabaseList(data);
+
+      const paginatedResult: PaginatedArticles = {
+        articles: articlesWithAuthors,
+        total: count,
+        page,
+        pages: Math.ceil(count / limit),
+      };
+
+      return ServiceResponse.ok(
+        [paginatedResult],
+        "Articles retrieved successfully",
       );
-    });
+    } catch (error) {
+      return ServiceResponse.error(
+        [],
+        error instanceof Error
+          ? error.message
+          : "An unexpected error occurred while searching articles",
+      );
+    }
   }
   private static sanitizeArticleInput(input: any): AllowedInsertFields {
     // Changed from Partial<AllowedInsertFields>

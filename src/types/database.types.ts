@@ -187,6 +187,19 @@ export interface Database {
           categories?: any; // JSON array of category IDs
         };
       };
+      users_active: {
+        Row: {
+          id: string;
+          name: string;
+          email: string;
+          password: string;
+          role: string;
+          avatar?: string;
+          bio?: string;
+          created_at: string;
+          updated_at: string;
+        };
+      };
     };
     Functions: {
       create_article_with_categories: {
@@ -215,6 +228,30 @@ export interface Database {
             label: string;
           }>;
         };
+      };
+      hard_delete_article: {
+        Args: {
+          p_article_id: string;
+        };
+        Returns: {
+          success: boolean;
+          article_id: string;
+          message: string;
+        };
+      };
+      search_articles: {
+        Args: {
+          p_search_term: string;
+        };
+        Returns: Array<{
+          id: string;
+          title: string;
+          description: string | null;
+          user_id: string;
+          created_at: string | null;
+          updated_at: string | null;
+          deleted_at: string | null;
+        }>;
       };
     };
 

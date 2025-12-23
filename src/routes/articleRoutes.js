@@ -20,18 +20,20 @@ router.post("/", authenticate, ArticleController.create);
  */
 router.get("/", ArticleController.getAll);
 
-// /**
-//  * @route   GET /api/articles/search
-//  * @desc    Search /articles/artículos
-//  * @access  Public
-//  */
-// router.get("/search", ArticleController.search);
+/**
+ * @route   GET /api/articles/search
+ * @desc    Search /articles/artículos
+ * @example /api/articles/search?q=depresión
+ * @example /api/articles/search?q=<search-term>&page=2&limit=5
+ * @access  Public
+ */
+router.get("/search", ArticleController.search);
 
-// /**
-//  * @route   GET /api/articles/userId/:userId
-//  * @desc    Get articles by user ID
-//  * @access  Public
-//  */
+/**
+ * @route   GET /api/articles/userId/:userId
+ * @desc    Get articles by user ID
+ * @access  Public
+ */
 router.get("/userId/:userId", ArticleController.getByUserId);
 
 /**
@@ -48,11 +50,18 @@ router.get("/:articleId", ArticleController.getById);
  */
 router.put("/:articleId", authenticate, ArticleController.update);
 
-// /**
-//  * @route   DELETE /api//articles/:id
-//  * @desc    Delete article
-//  * @access  Private (solo el autor o admin)
-//  */
-// router.delete("/:id", authenticate, ArticleController.delete);
+/**
+ * @route   DELETE /api//articles/:id
+ * @desc    Delete article
+ * @access  Private (solo el autor o admin)
+ */
+router.delete("/:articleId", authenticate, ArticleController.delete);
+
+/**
+ * @route   DELETE /api//articles/:id
+ * @desc    Delete article
+ * @access  Private (solo el autor o admin)
+ */
+router.delete("/hard/:articleId", authenticate, ArticleController.hardDelete);
 
 export default router;

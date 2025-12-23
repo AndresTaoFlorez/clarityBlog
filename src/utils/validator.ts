@@ -45,7 +45,9 @@ export const isValid = (
       | "number"
       | "boolean"
       | "function"
-      | "date";
+      | "date"
+      | "uuid"
+      | "query";
     allowEmpty?: boolean;
     deep?: boolean;
   } = {},
@@ -89,6 +91,16 @@ export const isValid = (
       case "date":
         return value instanceof Date && !Number.isNaN(value.getTime());
 
+      case "uuid":
+        return isValidUUID(value);
+
+      case "query":
+        if (typeof value !== "string") return false;
+        if (!allowEmpty && value.trim().length === 0) return false;
+        if (value.length > 100) return false;
+        if (/[%;'"]/.test(value)) return false; // Reject SQL injection chars
+        return true;
+
       default:
         return false;
     }
@@ -127,6 +139,18 @@ export const isValid = (
   return true;
 };
 
+function isValidUUID(uuid: any): boolean {
+  // Guard clauses: reject non-strings, null, undefined, empty
+  if (!uuid || typeof uuid !== "string" || uuid.trim() === "") {
+    return false;
+  }
+
+  // Regex for standard UUID v4 (case-insensitive)
+  const uuidRegex =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+  return uuidRegex.test(uuid.trim());
+}
 // backend/src/utils/equal.ts
 
 type DataType = "array" | "object" | "primitive" | "auto";

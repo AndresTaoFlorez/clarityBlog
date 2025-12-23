@@ -80,10 +80,6 @@ export class UserService {
    */
   static async findById(id: string): Promise<ServiceResponse<User>> {
     try {
-      if (!isValid(id)) {
-        return ServiceResponse.error([], `Id is required or invalid: ${id}`);
-      }
-
       const { data, error } = await db
         .from("users")
         .select("*")
@@ -92,23 +88,20 @@ export class UserService {
         .single();
 
       if (error) {
-        console.error("Database error fetching user by id:", error);
         return ServiceResponse.error(
           [],
           `Failed to fetch user: ${error.message}`,
         );
       }
 
-      if (!data || !isValid(data?._id || data?.id)) {
+      if (!isValid(data) || data?.length === 0) {
         return ServiceResponse.error([], "User not found");
       }
 
-      return ServiceResponse.ok(
-        [User.fromDatabase(data)],
-        "User retrieved successfully",
-      );
+      const user = User.fromDatabase(data);
+
+      return ServiceResponse.ok([user], "User retrieved successfully");
     } catch (error) {
-      console.error("Error in UserService.findById:", error);
       return ServiceResponse.error(
         [],
         error instanceof Error
@@ -173,28 +166,21 @@ export class UserService {
     try {
       const offset = (page - 1) * limit;
 
-      // Get users
-      const {
-        data: usersData,
-        error,
-        count,
-      } = await db
-        .from("users")
+      const { data, error, count } = await db
+        .from("users_active")
         .select("*", { count: "exact" })
         .order("created_at", { ascending: false })
-        .range(offset, offset + limit - 1)
-        .is("deleted_at", null);
+        .range(offset, offset + limit - 1);
 
       if (error) {
-        console.error("Database error fetching users:", error);
         return ServiceResponse.error(
           [],
           `Failed to fetch users: ${error.message}`,
         );
       }
 
-      if (!usersData || usersData.length === 0) {
-        return ServiceResponse.ok(
+      if (!isValid(data) || data.length === 0) {
+        return ServiceResponse.error(
           [
             {
               users: [],
@@ -207,7 +193,7 @@ export class UserService {
         );
       }
 
-      const users = User.fromDatabaseList(usersData);
+      const users = User.fromDatabaseList(data);
 
       const paginatedResult: PaginatedUsers = {
         users,
@@ -221,7 +207,6 @@ export class UserService {
         "Users retrieved successfully",
       );
     } catch (error) {
-      console.error("Error in UserService.findAll:", error);
       return ServiceResponse.error(
         [],
         error instanceof Error
@@ -376,29 +361,37 @@ export class UserService {
    * @param query - Search query string
    * @returns ServiceResponse with matching users
    */
-  static async search(query: string): Promise<ServiceResponse<User>> {
+  static async search(
+    query: string,
+    { page = 1, limit = 10 }: PaginationParams = {},
+  ): Promise<ServiceResponse<PaginatedUsers>> {
     try {
-      const { data: usersData, error } = await db
-        .from("users")
-        .select("*")
+      const offset = (page - 1) * limit;
+
+      const { data, error, count } = await db
+        .from("users_active")
+        .select("*", { count: "exact" })
         .or(`name.ilike.%${query}%,email.ilike.%${query}%`)
-        .is("deleted_at", null);
+        .order("created_at", { ascending: false })
+        .range(offset, offset + limit - 1);
 
-      if (error) {
-        console.error("Database error searching users:", error);
-        return ServiceResponse.error(
-          [],
-          `Failed to search users: ${error.message}`,
-        );
+      if (error || !isValid(data) || data.length === 0) {
+        return ServiceResponse.error([], `User not found : ${error?.message}`);
       }
 
-      if (!usersData || usersData.length === 0) {
-        return ServiceResponse.ok([], "No users found matching the query");
-      }
+      const users = User.fromDatabaseList(data);
 
-      const users = User.fromDatabaseList(usersData);
+      const paginatedResult: PaginatedUsers = {
+        users,
+        total: count || 0,
+        page,
+        pages: Math.ceil((count || 0) / limit),
+      };
 
-      return ServiceResponse.ok(users, "Users retrieved successfully");
+      return ServiceResponse.ok(
+        [paginatedResult],
+        "Users retrieved successfully",
+      );
     } catch (error) {
       console.error("Error in UserService.search:", error);
       return ServiceResponse.error(

@@ -1,7 +1,7 @@
 // backend/src/routes/commentRoutes.js
 import express from "express";
 import { CommentController } from "../controllers/commentController.js";
-import { authenticate } from "../middlewares/authMiddleware.js";
+import { authenticate } from "../middlewares/authMiddleware.ts";
 
 const router = express.Router();
 

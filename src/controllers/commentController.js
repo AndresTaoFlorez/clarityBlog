@@ -2,7 +2,7 @@
 import { CommentService } from "../services/commentService.js";
 import { db } from "../config/database.js";
 import { isValid } from "../utils/validator.ts";
-import { ArticleService } from "../services/ArticleService.js";
+import { ArticleService } from "../services/ArticleService.ts";
 
 export class CommentController {
   // Crear comentario desde ruta anidada: POST /api/articles/:articleId/comments

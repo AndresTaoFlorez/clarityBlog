@@ -1,7 +1,7 @@
 // backend/src/routes/categoryRoutes.js
 import express from "express";
 import { CategoryController } from "../controllers/categoryController.js";
-import { authenticate } from "../middlewares/authMiddleware.js";
+import { authenticate } from "../middlewares/authMiddleware.ts";
 
 const router = express.Router();
 

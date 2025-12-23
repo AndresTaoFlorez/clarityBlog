@@ -37,10 +37,10 @@ app.use("/api/comments", commentRoutes);
 app.use("/api/categories", categoryRoutes);
 
 // Testing routes
-app.get("/api/health", (req, res) => {
+app.get("/api/health", (_, res) => {
   res.json({
     status: "OK",
-    message: "API funcionando correctamente",
+    message: "API is working successfully",
     timestamp: new Date().toISOString(),
   });
 });

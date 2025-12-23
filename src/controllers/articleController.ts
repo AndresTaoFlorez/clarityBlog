@@ -51,6 +51,102 @@ export class ArticleController {
     }
   }
 
+  static async delete(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
+    try {
+      const articleId = req.params.articleId;
+      const userId = req.user?.id;
+      const role = req.user?.role;
+
+      if (
+        !isValid(articleId, { dataType: "uuid" }) ||
+        !isValid(userId, { dataType: "uuid" })
+      ) {
+        const response = ControllerResponse.badRequest(
+          "Invalid Article or User ID",
+        );
+        res.status(response.status).json(response);
+        return;
+      }
+
+      const articleMatchedResponse =
+        await ArticleService.findByArticleId(articleId);
+      const articleMatched = articleMatchedResponse.data[0];
+      if (!articleMatchedResponse.success) {
+        const response = ControllerResponse.notFound();
+        res.status(response.status).json(response);
+        return;
+      }
+
+      if (!equal(articleMatched.userId, userId) && !equal(role, "admin")) {
+        const response = ControllerResponse.unauthorized();
+        res.status(response.status).json(response);
+        return;
+      }
+
+      const { data, message, success } = await ArticleService.delete(articleId);
+      if (!success) {
+        const response = ControllerResponse.notFound(message);
+        res.status(response.status).json(response);
+        return;
+      }
+
+      const response = ControllerResponse.ok(data, message);
+      res.status(response.status).json(response);
+      return;
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async hardDelete(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
+    try {
+      const articleId = req.params.articleId;
+      const userId = req.user?.id;
+      const role = req.user?.role;
+
+      if (
+        !isValid(articleId, { dataType: "uuid" }) ||
+        !isValid(userId, { dataType: "uuid" })
+      ) {
+        const response = ControllerResponse.badRequest(
+          "Invalid Article or User ID",
+        );
+        res.status(response.status).json(response);
+        return;
+      }
+
+      const articleMatchedResponse =
+        await ArticleService.findByArticleId(articleId);
+      if (!articleMatchedResponse.success) {
+        const response = ControllerResponse.notFound();
+        res.status(response.status).json(response);
+        return;
+      }
+
+      const { data, message, success } =
+        await ArticleService.hardDelete(articleId);
+      if (!success) {
+        const response = ControllerResponse.notFound(message);
+        res.status(response.status).json(response);
+        return;
+      }
+
+      const response = ControllerResponse.ok(data, message);
+      res.status(response.status).json(response);
+      return;
+    } catch (error) {
+      next(error);
+    }
+  }
+
   // Create article
   static async getAll(
     req: Request,
@@ -140,7 +236,7 @@ export class ArticleController {
       const limit = parseIntSafely(req.query.limit, 5);
 
       // Validate userId presence
-      if (!ArticleController.isUuidValid(userId)) {
+      if (!isValid(userId, { dataType: "uuid" })) {
         const response = ControllerResponse.badRequest("User ID is required");
         res.status(response.status).json(response);
         return;
@@ -198,7 +294,10 @@ export class ArticleController {
       const userId = req.user?.id;
       const role = req.user?.role;
 
-      if (!ArticleController.isUuidValid(articleId) || !ArticleController.isUuidValid(userId)) {
+      if (
+        !isValid(articleId, { dataType: "uuid" }) ||
+        !isValid(userId, { dataType: "uuid" })
+      ) {
         const response = ControllerResponse.badRequest(
           "Invalid Article or User ID",
         );
@@ -247,22 +346,46 @@ export class ArticleController {
   }
 
   /**
-   * Validate if a value is a valid UUID v4 string (Supabase/Postgres format)
-   * Returns false for null, undefined, non-string, or malformed UUIDs
-   *
-   * @param uuid - Value to validate (string | null | undefined | any)
-   * @returns true only if it's a properly formatted UUID string
+   * GET /api/articles/search?q=searchTerm&page=1&limit=5kj
+   * Search articles by title or description
    */
-  private static isUuidValid(uuid: any): boolean {
-    // Guard clauses: reject non-strings, null, undefined, empty
-    if (!uuid || typeof uuid !== "string" || uuid.trim() === "") {
-      return false;
+  static async search(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
+    try {
+      const searchTerm = req.query.q as string;
+      const page = parseIntSafely(req.query.page, 1);
+      const limit = parseIntSafely(req.query.limit, 5);
+
+      if (!searchTerm || searchTerm.trim() === "") {
+        const response = ControllerResponse.badRequest(
+          "Search term is required",
+        );
+        res.status(response.status).json(response);
+        return;
+      }
+
+      const serviceResponse = await ArticleService.search(searchTerm, {
+        page,
+        limit,
+      });
+
+      if (!serviceResponse.success) {
+        const response = ControllerResponse.notFound(serviceResponse.message);
+        res.status(response.status).json(response);
+        return;
+      }
+
+      const response = ControllerResponse.ok(
+        serviceResponse.data,
+        serviceResponse.message,
+      );
+      res.status(response.status).json(response);
+    } catch (error) {
+      console.error("Error in ArticleController.search:", error);
+      next(error);
     }
-
-    // Regex for standard UUID v4 (case-insensitive)
-    const uuidRegex =
-      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
-    return uuidRegex.test(uuid.trim());
   }
 }
