@@ -1,10 +1,11 @@
-// backend/src/services/userService.ts
-import { db } from "../config/database.ts";
-import { User } from "../models/User.ts";
+// backend/src/services/userService
+import { db } from "../config/database";
+import { User } from "../models/User";
 import bcrypt from "bcrypt";
-import { isValid } from "../utils/validator.ts";
-import { ServiceResponse } from "../utils/index.ts";
+import { isValid } from "../utils/validator";
+import { ServiceResponse } from "../utils/index";
 import type { UUID } from "crypto";
+import { UserRole, UserRoles } from "@/models/value-objects/UserRole";
 
 interface UserData {
   email: string;
@@ -42,8 +43,19 @@ export class UserService {
   static async create(userData: UserData): Promise<ServiceResponse<User>> {
     try {
       const user = User.create(userData);
+
       if (!user.isValid()) {
-        return ServiceResponse.error({} as User, "Invalid user data");
+        return ServiceResponse.error(user, "Invalid user data");
+      }
+
+      const { success: isEmailExist, data: userExist } =
+        await UserService.findByEmail(user.email);
+
+      if (isEmailExist || isValid(userExist)) {
+        return ServiceResponse.error(
+          userExist,
+          `Already user exist with email: ${userExist.email}`,
+        );
       }
 
       // Generate password hash
@@ -99,16 +111,17 @@ export class UserService {
    * // Returns: { success: true, data: User, message: "User retrieved successfully" }
    */
   static async findById(
-    id: string,
-    role: string = "user",
+    id: UUID,
+    role: UserRole = "user",
   ): Promise<ServiceResponse<User>> {
     try {
-      const { data, error } = await db
-        .from("users")
-        .select("*")
-        .eq("id", id)
-        .is("deleted_at", role === "admin" ? undefined : null)
-        .single();
+      let query = db.from("users").select("*").eq("id", id);
+
+      if (!UserRoles.hasPermission(role, "admin")) {
+        query.is("deleted_at", null);
+      }
+
+      const { data, error } = await query;
 
       if (error) {
         return ServiceResponse.error(
@@ -146,30 +159,29 @@ export class UserService {
    */
   static async findByEmail(
     email: string,
-    role: string = "user",
+    role: UserRole = "user",
   ): Promise<ServiceResponse<User>> {
     try {
+      const table = UserRoles.hasPermission(role, "admin")
+        ? "users"
+        : "users_active";
       const { data, error } = await db
-        .from("users")
-        .select("*")
+        .from(table)
+        .select("*", { count: "exact" })
         .eq("email", email)
-        .is("deleted_at", role === "admin" ? undefined : null)
         .single();
 
-      if (error) {
+      if (error || !isValid(data)) {
         return ServiceResponse.error(
           {} as User,
-          `Failed to fetch user: ${error.message}`,
+          !isValid(data)
+            ? "No user found"
+            : `Failed to fetch user: ${error?.message}`,
         );
       }
 
-      if (!isValid(data) || data?.length === 0) {
-        return ServiceResponse.error({} as User, "User not found");
-      }
-
       const user = User.fromDatabase(data);
-
-      return ServiceResponse.ok(user, "User retrieved successfull");
+      return ServiceResponse.ok(user, "User retrieved successfully");
     } catch (error) {
       return ServiceResponse.error(
         {} as User,

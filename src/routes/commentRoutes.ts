@@ -1,9 +1,10 @@
 // backend/src/routes/commentRoutes.js
 import express from "express";
-import { CommentController } from "../controllers/commentController.js";
-import { authenticate } from "../middlewares/authMiddleware.ts";
+import type { Router } from "express";
+import { CommentController } from "../controllers/commentController";
+import { authenticate, authorizeAdmin } from "../middlewares/authMiddleware";
 
-const router = express.Router();
+const router: Router = express.Router();
 
 /**
  * @route   POST /api/comments
@@ -33,6 +34,7 @@ router.get("/articleId/:articleId", CommentController.getCommentsByArticleId);
 router.put(
   "/:commentId",
   authenticate,
+  authorizeAdmin,
   CommentController.updateCommentByArticleId,
 );
 

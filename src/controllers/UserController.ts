@@ -1,5 +1,5 @@
-import { UserService } from "../services/UserService.ts";
-import { ControllerResponse } from "../utils/index.ts";
+import { UserService } from "../services/UserService";
+import { ControllerResponse } from "../utils/index";
 import { type Response, type Request, type NextFunction } from "express";
 import {
   isSecurePassword,
@@ -7,8 +7,9 @@ import {
   equal,
   merge,
   checkUuids,
-} from "../utils/validator.ts";
-import { ArticleService } from "../services/ArticleService.ts";
+} from "../utils/validator";
+import { ArticleService } from "../services/ArticleService";
+import { UUID } from "crypto";
 
 export class UserController {
   /**
@@ -106,8 +107,8 @@ export class UserController {
     next: NextFunction,
   ): Promise<void> {
     try {
-      const userId = req.params.id;
-      const role = req.user?.role as string;
+      const userId = req.params.id as UUID;
+      const role = req.user?.role;
 
       if (!isValid(userId, { dataType: "uuid" })) {
         const response = ControllerResponse.badRequest("User ID is invalid");
@@ -161,7 +162,7 @@ export class UserController {
   ): Promise<void> {
     try {
       const email = req.params.email;
-      const role = req.user?.role as string;
+      const role = req.user?.role;
       if (!isValid(email, { dataType: "email" })) {
         const response = ControllerResponse.badRequest("User email is invalid");
         res.status(response.status).json(response);
@@ -398,7 +399,7 @@ export class UserController {
     next: NextFunction,
   ): Promise<void> {
     try {
-      const userId = req.params.userId;
+      const userId = req.params.userId as UUID;
       const requestingUserId = req.user?.id;
       const role = req.user?.role;
 

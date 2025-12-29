@@ -21,7 +21,6 @@ export class TokenBlacklist {
     try {
       const key = `blacklist:${token}`;
       await redis.setex(key, expiresInSeconds, "1");
-      console.log(`🔒 Token blacklisted for ${expiresInSeconds}s`);
     } catch (error) {
       console.error("Error adding token to blacklist:", error);
       throw error;
@@ -38,7 +37,6 @@ export class TokenBlacklist {
       const exists = await redis.exists(key);
       return exists === 1;
     } catch (error) {
-      console.error("Error checking blacklist:", error);
       // On error, allow request to proceed (fail open)
       return false;
     }
@@ -53,7 +51,6 @@ export class TokenBlacklist {
       const key = `blacklist:${token}`;
       await redis.del(key);
     } catch (error) {
-      console.error("Error removing token from blacklist:", error);
       throw error;
     }
   }
@@ -66,7 +63,6 @@ export class TokenBlacklist {
       const keys = await redis.keys("blacklist:*");
       return keys.length;
     } catch (error) {
-      console.error("Error counting blacklisted tokens:", error);
       return 0;
     }
   }

@@ -1,9 +1,10 @@
 // backend/src/routes/authRoutes.ts
+import type { Router } from "express";
 import express from "express";
-import { AuthController } from "../controllers/AuthController.ts";
-import { authenticate } from "../middlewares/authMiddleware.ts";
+import { AuthController } from "../controllers/AuthController";
+import { authenticate } from "../middlewares/authMiddleware";
 
-const router = express.Router();
+const router: Router = express.Router();
 
 // Public routes (no authentication required)
 router.post("/register", AuthController.register);

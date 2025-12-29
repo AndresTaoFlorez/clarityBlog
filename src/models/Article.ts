@@ -1,7 +1,8 @@
 // backend/src/models/Article.ts
 import type { Database } from "../types/database.types";
+import { isValid } from "../utils/validator";
 
-type DbArticle = Database["public"]["Tables"]["articles"]["Row"];
+export type DbArticle = Database["public"]["Tables"]["articles"]["Row"];
 
 export class Article {
   id: string | null = null;
@@ -97,6 +98,9 @@ export class Article {
   }
 
   static fromDatabaseList(list: DbArticle[]) {
-    return list.map(Article.fromDatabase);
+    if (isValid(list, { dataType: "array" })) {
+      return list.map(Article.fromDatabase);
+    }
+    return [];
   }
 }

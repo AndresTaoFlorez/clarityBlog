@@ -1,9 +1,9 @@
 // backend/src/controllers/articleController.js
 import type { Request, Response, NextFunction } from "express";
-import { ControllerResponse } from "../utils/ControllerResponse.ts";
-import { ArticleService } from "../services/ArticleService.ts";
-import { isValid, merge, equal, checkUuids } from "../utils/validator.ts";
-import type { UUID } from "node:crypto";
+import { ControllerResponse } from "../utils/ControllerResponse";
+import { ArticleService } from "../services/ArticleService";
+import { isValid, merge, equal, checkUuids } from "../utils/validator";
+import type { UUID } from "crypto";
 
 /**
  * Safely parses an integer from query params with default fallback
@@ -59,7 +59,15 @@ export class ArticleController {
   ): Promise<void> {
     try {
       const isArray: boolean = Array.isArray(req?.body.ids);
-      if (isArray) {
+      const articleId = req.params?.articleId as UUID;
+
+      if (isArray && isValid(articleId, { dataType: "uuid" })) {
+        const response = ControllerResponse.badRequest(
+          "Provide either articleId param or ids array in body, not both",
+        );
+        res.status(response.status).json(response);
+        return;
+      } else if (isArray) {
         return await ArticleController.softDeleteByArticleIds(req, res, next);
       } else {
         return await ArticleController.softDeleteByArticleId(req, res, next);
@@ -320,23 +328,19 @@ export class ArticleController {
       const limit = parseIntSafely(req.query.limit, 5);
       const role = req.user?.role as string;
 
-      const serviceResponse = await ArticleService.findAll({
+      const { data, message, success } = await ArticleService.findAll({
         page,
         limit,
         role,
       });
 
-      if (!serviceResponse.success) {
-        const response = ControllerResponse.notFound(serviceResponse.message);
+      if (!success) {
+        const response = ControllerResponse.notFound(message);
         res.status(response.status).json(response);
         return;
       }
 
-      const response = ControllerResponse.ok(
-        serviceResponse.data,
-        serviceResponse.message,
-      );
-
+      const response = ControllerResponse.ok(data, message);
       res.status(response.status).json(response);
       return;
     } catch (error) {
@@ -643,19 +647,10 @@ export class ArticleController {
     next: NextFunction,
   ): Promise<void> {
     try {
-      const articleId = req.params.articleId;
-      const role = req.user?.role;
+      const articleId = req.params.articleId as UUID;
 
       if (!isValid(articleId, { dataType: "uuid" })) {
         const response = ControllerResponse.badRequest("Invalid Article ID");
-        res.status(response.status).json(response);
-        return;
-      }
-
-      if (role !== "admin") {
-        const response = ControllerResponse.forbidden(
-          "Only admins can recover articles",
-        );
         res.status(response.status).json(response);
         return;
       }
@@ -683,8 +678,7 @@ export class ArticleController {
     next: NextFunction,
   ): Promise<void> {
     try {
-      const role = req.user?.role;
-      const ids: string[] = req.body.ids;
+      const ids = req.body.ids as UUID[];
 
       if (!isValid(ids, { dataType: "array" })) {
         const response = ControllerResponse.badRequest(
@@ -698,14 +692,6 @@ export class ArticleController {
       if (invalidIds.length > 0) {
         const response = ControllerResponse.badRequest(
           `Invalid UUIDs: ${JSON.stringify(invalidIds)}`,
-        );
-        res.status(response.status).json(response);
-        return;
-      }
-
-      if (role !== "admin") {
-        const response = ControllerResponse.forbidden(
-          "Only admins can recover articles",
         );
         res.status(response.status).json(response);
         return;

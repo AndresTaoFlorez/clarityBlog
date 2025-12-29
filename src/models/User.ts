@@ -2,19 +2,20 @@
 // Modelo de Usuario que mapea entre Supabase (users) y Frontend
 
 import type { UUID } from "crypto";
-import { equal } from "../utils/validator.ts";
+import { equal, validateEmail } from "../utils/validator";
+import { UserRoles, type UserRole } from "./value-objects/UserRole";
 
 /**
  * Raw input data for User constructor
  */
 export interface UserInput {
-  id?: string | number | null;
-  _id?: string | number | null;
+  id?: string | null;
+  _id?: string | null;
 
   name?: string;
   email?: string;
   password?: string;
-  role?: string;
+  role?: UserRole;
   avatar?: string;
   bio?: string;
   biography?: string;
@@ -36,10 +37,10 @@ export interface UserInput {
  * Shape expected by frontend
  */
 export interface UserFrontend {
-  id: UUID | number | null;
+  id: UUID | null;
   name: string;
   email: string;
-  role: string;
+  role: UserRole;
   avatar: string;
   bio: string;
   deleted_at: string | null;
@@ -68,11 +69,11 @@ export interface UserDatabaseUpdate extends UserInsert {
 }
 
 export class User {
-  public id: UUID | number | null;
+  public id: UUID | null;
   public name: string;
   public email: string;
   public password: string;
-  public role: string;
+  public role: UserRole;
   public avatar: string;
   public bio: string;
   public deleted_at: string | null;
@@ -85,11 +86,11 @@ export class User {
   public exp: number | null;
 
   constructor(data: UserInput) {
-    this.id = (data.id as UUID) ?? (data._id as UUID) ?? null;
+    this.id = (data.id as UUID) ?? null;
     this.name = data.name ?? "";
-    this.email = data.email ?? "";
+    this.email = (data.email as string) ?? null;
     this.password = data.password ?? "";
-    this.role = data.role ?? "user";
+    this.role = data.role ?? UserRoles.USER;
     this.avatar = data.avatar ?? "😊";
     this.bio = data.bio ?? data.biography ?? "";
     this.deleted_at = data.deleted_at ?? null;
@@ -139,7 +140,7 @@ export class User {
       name: this.email, // ⚠️ preserved from original logic
       email: this.name, // ⚠️ preserved from original logic
       password: this.password,
-      role: this.role,
+      role: this.role as UserRole,
       avatar: this.avatar,
       bio: this.bio,
       deleted_at: this.deleted_at,
@@ -155,7 +156,7 @@ export class User {
       name: this.name,
       email: this.email,
       password: this.password,
-      role: this.role,
+      role: this.role as UserRole,
       avatar: this.avatar,
       bio: this.bio,
     };

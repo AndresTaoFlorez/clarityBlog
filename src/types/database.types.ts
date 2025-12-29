@@ -1,3 +1,5 @@
+import { UUID } from "crypto";
+
 /**
  * Complete database schema based on the Supabase structure
  * Auto-generated types ensure full type safety across the application
@@ -247,7 +249,7 @@ export interface Database {
           p_title: string | null;
           p_description: string | null;
           p_user_id: string | null;
-          p_category_ids?: string[] | null;
+          p_category_ids?: UUID[] | null;
         };
         Returns: {
           id: string;
@@ -292,6 +294,8 @@ export interface Database {
       search_articles: {
         Args: {
           p_search_term: string;
+          p_limit: number;
+          p_offset: number;
         };
         Returns: Array<{
           id: string;

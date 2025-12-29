@@ -1,8 +1,8 @@
 // backend/src/routes/userroutes.ts
 import { type Router } from "express";
 import express from "express";
-import { UserController } from "../controllers/UserController.ts";
-import { authenticate, authorizeAdmin } from "../middlewares/authMiddleware.ts";
+import { UserController } from "@/controllers/UserController";
+import { authenticate, authorizeAdmin } from "@/middlewares/authMiddleware";
 
 const router: Router = express.Router();
 

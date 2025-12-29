@@ -1,4 +1,4 @@
-import { type ApiResponse } from "../types/api.ts";
+import { type ApiResponse } from "../types/api";
 
 /**
  * A generic response class for service-layer operations.

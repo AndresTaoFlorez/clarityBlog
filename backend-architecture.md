@@ -29,7 +29,7 @@ backend/
 │   │   └── commentController.js
 │   ├── services/             # Data access layer
 │   │   ├── authService.js
-│   │   ├── userService.js
+│   │   ├── userService
 │   │   ├── noteService.js
 │   │   └── commentService.js
 │   ├── middlewares/          # Request interceptors

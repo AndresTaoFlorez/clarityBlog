@@ -1,2 +1,2 @@
-export { ControllerResponse } from "./ControllerResponse.ts";
-export { ServiceResponse } from "./ServiceResponse.ts";
+export { ControllerResponse } from "./ControllerResponse";
+export { ServiceResponse } from "./ServiceResponse";

@@ -1,5 +1,5 @@
 // src/utils/ControllerResponse.ts
-import { type ApiResponse } from "../types/api.ts";
+import { type ApiResponse } from "../types/api";
 
 export const HttpStatus = {
   OK: 200,

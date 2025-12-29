@@ -1,10 +1,11 @@
 // backend/src/middlewares/authMiddleware.ts
-import { AuthService } from "../services/AuthService.ts";
-import { UserService } from "../services/UserService.ts";
-import { User } from "../models/User.ts";
-import { merge } from "../utils/validator.ts";
-import { TokenBlacklist } from "../services/redis-client.ts";
+import { AuthService } from "../services/AuthService";
+import { UserService } from "../services/UserService";
+import { User } from "../models/User";
+import { merge } from "../utils/validator";
+import { TokenBlacklist } from "../services/redis-client";
 import type { Request, Response, NextFunction } from "express";
+import { UUID } from "node:crypto";
 
 // Extend Express Request to include user
 declare global {
@@ -45,7 +46,7 @@ export const authenticate = async (
     const decoded = AuthService.verifyToken(token);
 
     // 4. Fetch user and verify token version
-    const userResponse = await UserService.findById(decoded.id);
+    const userResponse = await UserService.findById(decoded.id as UUID);
 
     if (!userResponse.success) {
       return res.status(401).json({

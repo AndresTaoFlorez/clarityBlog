@@ -32,11 +32,16 @@ export type TableName =
   | keyof Database["public"]["Tables"]
   | keyof Database["public"]["Views"];
 
+export type FunctionName = keyof Database["public"]["Functions"];
+// Extract function arguments type safely
+export type FunctionParams<FnName extends FunctionName> =
+  Database["public"]["Functions"][FnName]["Args"];
+
 export const db = {
   from: <T extends TableName>(table: T) => supabase.from(table),
-  rpc: <FnName extends keyof Database["public"]["Functions"]>(
+  rpc: <FnName extends FunctionName>(
     fn: FnName,
-    params?: Database["public"]["Functions"][FnName]["Args"],
+    params?: FunctionParams<FnName>,
   ) => supabase.rpc(fn, params) as any,
   auth: supabase.auth,
   storage: supabase.storage,

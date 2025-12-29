@@ -1,8 +1,8 @@
 // backend/src/routes/articleRoutes.js
 import type { Router } from "express";
 import express from "express";
-import { ArticleController } from "../controllers/ArticleController.ts";
-import { authenticate, authorizeAdmin } from "../middlewares/authMiddleware.ts";
+import { ArticleController } from "../controllers/ArticleController";
+import { authenticate, authorizeAdmin } from "../middlewares/authMiddleware";
 
 const router: Router = express.Router();
 
@@ -35,13 +35,6 @@ router.get("/a", authenticate, authorizeAdmin, ArticleController.getAll);
 router.get("/oneormore", ArticleController.getArticleByIds);
 
 /**
- * @route   GET /api/articles/:articleId
- * @desc    Get article by Id
- * @access  public
- */
-router.get("/:articleId", ArticleController.getArticleById);
-
-/**
  * @route   GET /api/articles/search
  * @desc    Search /articles/artículos
  * @example /api/articles/search?q=depresión
@@ -49,6 +42,13 @@ router.get("/:articleId", ArticleController.getArticleById);
  * @access  public
  */
 router.get("/search", ArticleController.search);
+
+/**
+ * @route   GET /api/articles/:articleId
+ * @desc    Get article by Id
+ * @access  public
+ */
+router.get("/:articleId", ArticleController.getArticleById);
 
 /**
  * @route   GET /api/articles/userId/:userId

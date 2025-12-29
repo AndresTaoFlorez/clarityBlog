@@ -1,9 +1,10 @@
-// src/services/ArticleService.ts
+// src/services/ArticleService
 import type { UUID } from "crypto";
-import { db } from "../config/database.ts";
-import { Article } from "../models/Article.ts";
-import { ServiceResponse } from "../utils/index.ts";
-import { isValid } from "../utils/validator.ts";
+import type { PostgrestError } from "@supabase/supabase-js";
+import { db } from "../config/database";
+import { Article, type DbArticle } from "../models/Article";
+import { ServiceResponse } from "../utils/index";
+import { isValid } from "../utils/validator";
 
 interface PaginationParams {
   page?: number;
@@ -16,6 +17,15 @@ interface PaginatedArticles<T = Article[]> {
   page: number;
   pages: number;
 }
+
+/**
+ * Custom type for Supabase responses that include pagination/count
+ */
+type DbResponse<T = unknown> = {
+  data: T[] | [] | null;
+  error: PostgrestError | null;
+  count: number | 0 | null;
+};
 
 type AllowedInsertFields = Pick<
   Article,
@@ -63,15 +73,18 @@ export class ArticleService {
         .select("*")
         .single();
 
-      if (error) {
+      const isData = isValid(data, { dataType: "array" });
+
+      if (error || !isData) {
         return ServiceResponse.error(
           {} as Article,
-          `Article to delete not found: ${error.message}`,
+          isData
+            ? `The article could not be deleted: ${error?.message}`
+            : "No article finded to delete",
         );
       }
 
       const article = Article.fromDatabase(data);
-
       return ServiceResponse.ok(article, "Article deleted successfully");
     } catch (error) {
       return ServiceResponse.error(
@@ -112,10 +125,14 @@ export class ArticleService {
         count = (result.count as number) ?? data?.length;
       }
 
-      if (error) {
+      const isData = isValid(data, { dataType: "array" });
+
+      if (error || !isData) {
         return ServiceResponse.error(
           {} as PaginatedArticles,
-          `The article could not be deleted: ${error.message}`,
+          isData
+            ? `The article could not be deleted: ${error?.message}`
+            : "No articles finded to delete",
         );
       }
 
@@ -246,10 +263,14 @@ export class ArticleService {
         .select("*", { count: "exact" })
         .range(from, to);
 
-      if (error) {
+      const isData = isValid(data, { dataType: "array" });
+
+      if (error || !isData) {
         return ServiceResponse.error(
           {} as PaginatedArticles<Article[]>,
-          `Hard delete failed: ${error.message}`,
+          isData
+            ? `Hard delete failed: ${error.message}`
+            : "No articles finded to delete",
         );
       }
 
@@ -614,22 +635,24 @@ export class ArticleService {
 
       const offset = (page - 1) * limit;
 
-      const { data, error } = await db
-        .rpc("search_articles", {
-          p_search_term: searchTerm.trim(),
-        })
+      const { data, error, count }: DbResponse<DbArticle> = await db
+        .from("articles_with_details")
+        .select("*", { count: "exact" })
+        .or(
+          `title.ilike.%${searchTerm}%,description.ilike.%${searchTerm}%,author_name.ilike.%${searchTerm}%,author_email.ilike.%${searchTerm}%`,
+        )
+        .is("deleted_at", null)
+        .order("created_at", { ascending: false })
         .range(offset, offset + limit - 1);
 
-      const { data: allResults } = await db.rpc("search_articles", {
-        p_search_term: searchTerm.trim(),
-      });
+      const isData = isValid(data, { dataType: "array" });
 
-      const count = allResults?.length || 0;
-
-      if (error) {
+      if (error || !isData) {
         return ServiceResponse.error(
           {} as PaginatedArticles,
-          `Failed to search articles: ${error.message}`,
+          isData
+            ? `Failed to search articles: ${error?.message}`
+            : "No articles finded",
         );
       }
 
@@ -646,9 +669,9 @@ export class ArticleService {
 
       const paginatedResult: PaginatedArticles = {
         articles: articlesWithAuthors,
-        total: count,
+        total: count ?? 0,
         page,
-        pages: Math.ceil(count / limit),
+        pages: Math.ceil((count ?? 0) / limit),
       };
 
       return ServiceResponse.ok(
@@ -766,10 +789,14 @@ export class ArticleService {
         count = (result.count as number) ?? data?.length;
       }
 
-      if (error) {
+      const isData = isValid(data, { dataType: "array" });
+
+      if (error || !isData) {
         return ServiceResponse.error(
           {} as PaginatedArticles,
-          `Error recovering articles: ${error.message}`,
+          isData
+            ? `Error recovering articles: ${error?.message}`
+            : "No articles finded to recover",
         );
       }
 
@@ -792,7 +819,6 @@ export class ArticleService {
         {
           notFoundIds,
           totalRequested: articleIds.length,
-          count: count,
         },
       );
     } catch (error) {

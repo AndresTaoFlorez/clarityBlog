@@ -1,11 +1,12 @@
-// backend/src/controllers/authController.ts
+// backend/src/controllers/authController
 import type { Request, Response, NextFunction } from "express";
-import { AuthService } from "../services/AuthService.ts";
-import { User } from "../models/User.ts";
-import { UserService } from "../services/UserService.ts";
-import { ControllerResponse } from "../utils/ControllerResponse.ts";
-import { equal, merge } from "../utils/validator.ts";
-
+import { AuthService } from "../services/AuthService";
+import { User } from "../models/User";
+import { UserService } from "../services/UserService";
+import { ControllerResponse } from "../utils/ControllerResponse";
+import { equal, isSecurePassword, isValid, merge } from "../utils/validator";
+import { UUID } from "node:crypto";
+import { UserRoles, type UserRole } from "@/models/value-objects/UserRole";
 // Extend Express Request to include user property
 interface AuthRequest extends Request {
   user?: User;
@@ -24,42 +25,26 @@ export class AuthController {
     next: NextFunction,
   ): Promise<Response | void> {
     try {
-      const email = req.body.email;
+      const content = isValid(req.body, { dataType: "object" }) && req.body;
 
-      // Check if user already exists
-      const userResponse = await UserService.findByEmail(email);
-      if (userResponse.success) {
-        const response = ControllerResponse.conflict(
-          `User already exists with email: ${email}`,
-        );
-        return res.status(response.status).json(response);
+      if (!content) {
+        const response = ControllerResponse.badRequest("Invalid data");
+        res.status(response.status).json(response);
+        return;
       }
 
       // Register new user
-      const { data: result, error } = await AuthService.register(req.body);
+      const { data, success, message } = await AuthService.register(content);
 
-      if (error) {
-        return res.status(409).json({
-          success: false,
-          message:
-            typeof error === "object" ? error.message : "Registration failed",
-        });
+      if (!success) {
+        const response = ControllerResponse.conflict(message);
+        res.status(response.status).json(response);
+        return;
       }
 
-      if (!result) {
-        return res.status(500).json({
-          success: false,
-          message: "No data returned from registration",
-        });
-      }
-
-      return res.status(201).json({
-        success: true,
-        message: "User registered successfully",
-        token: result.token,
-        expiresIn: result.expiresIn,
-        user: result.user,
-      });
+      const response = ControllerResponse.ok(data, message);
+      res.status(response.status).json(response);
+      return;
     } catch (error) {
       next(error);
     }
@@ -78,30 +63,29 @@ export class AuthController {
   ): Promise<Response | void> {
     try {
       const { email, password } = req.body;
-      const { data, error } = await AuthService.login({ email, password });
 
-      if (error) {
-        return res.status(401).json({
-          success: false,
-          message:
-            typeof error === "object" ? error.message : "Invalid credentials",
-        });
+      if (!isValid(email, { dataType: "email" }) || !isValid(password)) {
+        const response = ControllerResponse.badRequest(
+          "Email or password is invalid",
+        );
+        res.status(response.status).json(response);
+        return;
       }
 
-      if (!data) {
-        return res.status(500).json({
-          success: false,
-          message: "No data returned from login",
-        });
-      }
-
-      return res.status(200).json({
-        success: true,
-        message: "Login successful",
-        token: data.token,
-        expiresIn: data.expiresIn,
-        user: data.user,
+      const { data, success, message } = await AuthService.login({
+        email,
+        password,
       });
+
+      if (!success) {
+        const response = ControllerResponse.unauthorized("Invalid credentials");
+        res.status(response.status).json(response);
+        return;
+      }
+
+      const response = ControllerResponse.ok(data, message);
+      res.status(response.status).json(response);
+      return;
     } catch (error) {
       next(error);
     }
@@ -112,33 +96,31 @@ export class AuthController {
    * @param req - Express request object with token
    * @param res - Express response object
    * @param next - Express next function
-   */
-  static async logout(
+   */ static async logout(
     req: AuthRequest,
     res: Response,
     next: NextFunction,
   ): Promise<Response | void> {
     try {
-      if (!req.token) {
-        return res.status(401).json({
-          success: false,
-          message: "No token provided",
-        });
+      const token = req?.token as string;
+
+      if (!isValid(token)) {
+        const response = ControllerResponse.badRequest("No token provided");
+        res.status(response.status).json(response);
+        return;
       }
 
-      const result = await AuthService.logout(req.token);
+      const { message, success, data } = await AuthService.logout(token);
 
-      if (!result.success) {
-        return res.status(500).json({
-          success: false,
-          message: result.message,
-        });
+      if (!success) {
+        const response = ControllerResponse.serverError(message);
+        res.status(response.status).json(message);
+        return;
       }
 
-      return res.status(200).json({
-        success: true,
-        message: "Logged out successfully",
-      });
+      const response = ControllerResponse.ok(data, message);
+      res.status(response.status).json(response);
+      return;
     } catch (error) {
       next(error);
     }
@@ -156,70 +138,39 @@ export class AuthController {
     next: NextFunction,
   ): Promise<Response | void> {
     try {
-      const sessionUserId = req.user?.id as string;
-      const userId = req.params.userId ?? sessionUserId;
-      const role = req.user?.role as string;
+      const sessionUserId = req.user?.id as UUID;
+      const userId = (req.params.userId as UUID) ?? sessionUserId;
+      const role = req.user?.role as UserRole;
 
-      if (!equal(userId, sessionUserId) && !equal(role, "admin")) {
-        return res.status(401).json({
-          success: false,
-          message: "Unauthorized to logout all devices for this user",
-        });
+      if (
+        !equal(userId, sessionUserId) &&
+        UserRoles.hasPermission(role, "admin")
+      ) {
+        const response = ControllerResponse.notFound(
+          "Unauthorized to logout all devices for this user",
+        );
+        res.status(response.status).json(response);
+        return;
       }
 
-      if (!req.user) {
-        return res.status(401).json({
-          success: false,
-          message: "User not authenticated",
-        });
+      if (!isValid(sessionUserId)) {
+        const response = ControllerResponse.unauthorized(
+          "User not authenticated",
+        );
+        res.status(response.status).json(response);
+        return;
       }
 
-      const result = await AuthService.logoutAllDevices(userId);
+      const { data, message, success } =
+        await AuthService.logoutAllDevices(userId);
 
-      if (!result.success) {
-        return res.status(500).json({
-          success: false,
-          message: result.message,
-        });
+      if (!success) {
+        const response = ControllerResponse.serverError(message);
+        res.status(response.status).json(response);
+        return;
       }
 
-      return res.status(200).json({
-        success: true,
-        message: "Logged out from all devices successfully",
-      });
-    } catch (error) {
-      next(error);
-    }
-  }
-
-  /**
-   * Verify JWT token and return user data
-   * @param req - Express request object with user attached
-   * @param res - Express response object
-   * @param next - Express next function
-   */
-  static async verifyToken(
-    req: AuthRequest,
-    res: Response,
-    next: NextFunction,
-  ): Promise<Response | void> {
-    try {
-      if (!req.user) {
-        return res.status(401).json({
-          success: false,
-          message: "User not authenticated",
-        });
-      }
-
-      const userId = req.user.id as string;
-      const token = req.user.token as string;
-      const { data: userFinded } = await UserService.findById(userId);
-      const data = userFinded;
-      const response = ControllerResponse.ok(
-        merge(data, { token }),
-        "Token is valid",
-      );
-
+      const response = ControllerResponse.ok(data, message);
       res.status(response.status).json(response);
       return;
     } catch (error) {
@@ -228,10 +179,46 @@ export class AuthController {
   }
 
   /**
-   * Refresh access token (optional - for implementing refresh tokens)
-   * @param req - Express request object
-   * @param res - Express response object
-   * @param next - Express next function
+   * Verify JWT token and return user data
+   */
+  static async verifyToken(
+    req: AuthRequest,
+    res: Response,
+    next: NextFunction,
+  ): Promise<Response | void> {
+    try {
+      const userId = req.user?.id as UUID;
+      const token = req.user?.token as string;
+
+      if (!isValid(userId)) {
+        const response = ControllerResponse.unauthorized(
+          "User not authenticated",
+        );
+        res.status(response.status).json(response);
+        return;
+      }
+
+      const { data, success, message } = await UserService.findById(userId);
+
+      if (!success) {
+        const response = ControllerResponse.notFound(message);
+        res.status(response.status).json(response);
+        return;
+      }
+
+      const response = ControllerResponse.ok(
+        merge(data, { token }),
+        "Token is valid",
+      );
+      res.status(response.status).json(response);
+      return;
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Refresh access token
    */
   static async refreshToken(
     req: AuthRequest,
@@ -239,23 +226,34 @@ export class AuthController {
     next: NextFunction,
   ): Promise<Response | void> {
     try {
-      if (!req.user) {
-        return res.status(401).json({
-          success: false,
-          message: "User not authenticated",
-        });
+      const userId = req.user?.id as UUID;
+
+      if (!isValid(userId)) {
+        const response = ControllerResponse.unauthorized(
+          "User not authenticated",
+        );
+        res.status(response.status).json(response);
+        return;
       }
 
-      // Generate new token with current user data
-      const transformedData = AuthService.translateToGenerateToken(req.user);
-      const newToken = AuthService.generateToken(transformedData);
+      const { data, success, message } = await UserService.findById(userId);
 
-      return res.status(200).json({
-        success: true,
-        message: "Token refreshed successfully",
-        token: newToken,
-        expiresIn: "15m",
-      });
+      if (!success) {
+        const response = ControllerResponse.notFound(message);
+        res.status(response.status).json(response);
+        return;
+      }
+
+      const transformedData = AuthService.translateToGenerateToken(data);
+      const { token: newToken, expiresIn } =
+        AuthService.generateToken(transformedData);
+
+      const response = ControllerResponse.ok(
+        { token: newToken, expiresIn },
+        "Token refreshed successfully",
+      );
+      res.status(response.status).json(response);
+      return;
     } catch (error) {
       next(error);
     }
@@ -263,9 +261,6 @@ export class AuthController {
 
   /**
    * Get current authenticated user profile
-   * @param req - Express request object with user
-   * @param res - Express response object
-   * @param next - Express next function
    */
   static async getProfile(
     req: AuthRequest,
@@ -273,17 +268,30 @@ export class AuthController {
     next: NextFunction,
   ): Promise<Response | void> {
     try {
-      if (!req.user) {
-        return res.status(401).json({
-          success: false,
-          message: "User not authenticated",
-        });
+      const userId = req.user?.id as UUID;
+
+      if (!isValid(userId)) {
+        const response = ControllerResponse.unauthorized(
+          "User not authenticated",
+        );
+        res.status(response.status).json(response);
+        return;
       }
 
-      return res.status(200).json({
-        success: true,
-        user: req.user.toJSON(),
-      });
+      const { data, success, message } = await UserService.findById(userId);
+
+      if (!success) {
+        const response = ControllerResponse.notFound(message);
+        res.status(response.status).json(response);
+        return;
+      }
+
+      const response = ControllerResponse.ok(
+        data.toJSON(),
+        "Profile retrieved successfully",
+      );
+      res.status(response.status).json(response);
+      return;
     } catch (error) {
       next(error);
     }
