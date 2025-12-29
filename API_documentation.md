@@ -262,3 +262,7 @@ Common Error Responses
 
 Notes
 - During migration, responses may temporarily include legacy Spanish keys on article and comment objects for compatibility (e.g., titulo, contenido, categoria, usuario; notaId). These will be removed after the frontend is fully migrated to the English contract.
+
+
+## REDIS & JWT
+https://upstash.com/

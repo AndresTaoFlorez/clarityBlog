@@ -1,6 +1,7 @@
 // backend/src/models/User.ts
 // Modelo de Usuario que mapea entre Supabase (users) y Frontend
 
+import type { UUID } from "crypto";
 import { equal } from "../utils/validator.ts";
 
 /**
@@ -35,7 +36,7 @@ export interface UserInput {
  * Shape expected by frontend
  */
 export interface UserFrontend {
-  _id: string | number | null;
+  id: UUID | number | null;
   name: string;
   email: string;
   role: string;
@@ -67,7 +68,7 @@ export interface UserDatabaseUpdate extends UserInsert {
 }
 
 export class User {
-  public id: string | number | null;
+  public id: UUID | number | null;
   public name: string;
   public email: string;
   public password: string;
@@ -84,7 +85,7 @@ export class User {
   public exp: number | null;
 
   constructor(data: UserInput) {
-    this.id = data.id ?? data._id ?? null;
+    this.id = (data.id as UUID) ?? (data._id as UUID) ?? null;
     this.name = data.name ?? "";
     this.email = data.email ?? "";
     this.password = data.password ?? "";
@@ -111,7 +112,7 @@ export class User {
    */
   toJSON(): UserFrontend {
     return {
-      _id: this.id,
+      id: this.id,
       name: this.name,
       email: this.email,
       role: this.role,

@@ -5,8 +5,8 @@ import helmet from "helmet";
 import morgan from "morgan";
 
 import authRoutes from "./routes/authRoutes.js";
-import userRoutes from "./routes/userRoutes.js";
-import articleRoutes from "./routes/articleRoutes.js";
+import userRoutes from "./routes/userRoutes.ts";
+import articleRoutes from "./routes/articleRoutes.ts";
 import commentRoutes from "./routes/commentRoutes.js";
 import categoryRoutes from "./routes/categoryRoutes.js";
 import { errorHandler } from "./middlewares/errorHandler.js";

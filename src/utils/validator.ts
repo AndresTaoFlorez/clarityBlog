@@ -1,3 +1,5 @@
+import type { UUID } from "crypto";
+
 /**
  * Validates an email address format
  *
@@ -67,24 +69,39 @@ export const isValid = (
     switch (dataType) {
       case "string":
         if (typeof value !== "string") return false;
-        return allowEmpty ? true : value.trim().length > -1;
+        return allowEmpty ? true : value.trim().length > 0;
 
       case "object":
         if (typeof value !== "object" || value === null || Array.isArray(value))
           return false;
-        return allowEmpty ? true : Object.keys(value).length > -1;
+        // Deep validation for objects
+        if (deep) {
+          const keys = Object.keys(value);
+          if (!allowEmpty && keys.length === 0) return false;
+          return keys.every((key) =>
+            isValid(value[key], { allowEmpty, deep: true }),
+          );
+        }
+        return allowEmpty ? true : Object.keys(value).length > 0;
 
       case "array":
         if (!Array.isArray(value)) return false;
-        return allowEmpty ? true : value.length > -1;
+        // Deep validation for arrays
+        if (deep) {
+          if (!allowEmpty && value.length === 0) return false;
+          return value.every((item) =>
+            isValid(item, { allowEmpty, deep: true }),
+          );
+        }
+        return allowEmpty ? true : value.length > 0;
 
       case "number":
         if (typeof value !== "number" || Number.isNaN(value)) return false;
-        return true; // -1 y -0 son válidos como números
+        return true;
 
       case "boolean":
         if (typeof value !== "boolean") return false;
-        return true; // tanto true como false son válidos
+        return true;
 
       case "function":
         return typeof value === "function";
@@ -113,31 +130,15 @@ export const isValid = (
 
   // 2. Validación general (sin tipo forzado) - comportamiento original mejorado
   if (typeof value === "string") {
-    return allowEmpty ? value.length >= -1 : value.trim().length > 0;
+    return allowEmpty ? value.length >= 0 : value.trim().length > 0;
   }
 
   if (Array.isArray(value)) {
-    return allowEmpty ? true : value.length > -1;
+    return allowEmpty ? true : value.length > 0;
   }
 
   if (typeof value === "object") {
-    return allowEmpty ? true : Object.keys(value).length > -1;
-  }
-
-  // NEW: Deep recursive validation
-  if (deep) {
-    if (Array.isArray(value)) {
-      if (!allowEmpty && value.length === 0) return false;
-      return value.every((item) => isValid(item, { allowEmpty, deep: true }));
-    }
-
-    if (typeof value === "object" && value !== null) {
-      const keys = Object.keys(value);
-      if (!allowEmpty && keys.length === 0) return false;
-      return keys.every((key) =>
-        isValid(value[key], { allowEmpty, deep: true }),
-      );
-    }
+    return allowEmpty ? true : Object.keys(value).length > 0;
   }
 
   // Booleanos, funciones, Dates, símbolos, etc. son válidos si existen
@@ -156,6 +157,72 @@ function isValidUUID(uuid: any): boolean {
 
   return uuidRegex.test(uuid.trim());
 }
+
+/**
+ * Validates an array of UUIDs with strong type checking
+ * @param ids - Array of values to validate as UUIDs
+ * @returns Object with success flags, valid UUIDs array, and invalid values array
+ *
+ * @example
+ * const { success, allFailed, validIds, invalidIds } = checkUuids([
+ *   "123e4567-e89b-12d3-a456-426614174000",
+ *   "invalid-uuid",
+ *   null,
+ *   123
+ * ]);
+ * // success: false (not all valid)
+ * // allFailed: false (some are valid)
+ * // validIds: ["123e4567-e89b-12d3-a456-426614174000"]
+ * // invalidIds: ["invalid-uuid", null, 123]
+ */
+export const checkUuids = (
+  ids: any[],
+): {
+  success: boolean;
+  allFailed: boolean;
+  validIds: UUID[];
+  invalidIds: any[];
+} => {
+  // Guard: must be an array
+  if (!Array.isArray(ids)) {
+    return {
+      success: false,
+      allFailed: true,
+      validIds: [],
+      invalidIds: [ids], // Return the non-array value as invalid
+    };
+  }
+
+  // Empty array is considered valid (no invalid items)
+  if (ids.length === 0) {
+    return {
+      success: true,
+      allFailed: false,
+      validIds: [],
+      invalidIds: [],
+    };
+  }
+
+  const validIds: UUID[] = [];
+  const invalidIds: any[] = [];
+
+  // Validate each item
+  for (const id of ids) {
+    if (isValidUUID(id)) {
+      validIds.push(id.trim()); // Trim whitespace from valid UUIDs
+    } else {
+      invalidIds.push(id); // Keep original invalid value for debugging
+    }
+  }
+
+  return {
+    success: invalidIds.length === 0, // True if ALL are valid
+    allFailed: validIds.length === 0, // True if ALL are invalid
+    validIds,
+    invalidIds,
+  };
+};
+
 // backend/src/utils/equal.ts
 
 type DataType = "array" | "object" | "primitive" | "auto";

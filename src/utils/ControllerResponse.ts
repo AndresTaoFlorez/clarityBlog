@@ -26,19 +26,22 @@ export type ControllerResponseType<T = unknown> = ApiResponse<T> & {
 export class ControllerResponse<T = unknown> implements ApiResponse<T> {
   success: boolean;
   message: string;
-  data: T[];
+  data: T;
   status: HttpStatus;
+  meta: object;
 
   constructor(
     success: boolean,
     message: string,
-    data: T[],
+    data: T,
     status: HttpStatus,
+    meta: object = {},
   ) {
     this.success = success;
     this.message = message;
     this.data = data;
     this.status = status;
+    this.meta = meta;
   }
 
   // Success responses
@@ -52,18 +55,22 @@ export class ControllerResponse<T = unknown> implements ApiResponse<T> {
    * - Any successful operation that returns data
    *
    * @template T - The type of data being returned
-   * @param {T[]} data - Array of data to return (default: empty array)
+   * @param {T} data - Data object to return (default: empty object)
    * @param {string} message - Success message (default: "Success")
    * @returns {ControllerResponseType<T>} Response object with 200 status
    * @example
    * // Getting a user profile
-   * return ControllerResponse.ok([user], "User retrieved successfully");
+   * return ControllerResponse.ok(user, "User retrieved successfully");
    * @example
    * // Listing articles with pagination
-   * return ControllerResponse.ok([paginatedArticles], "Articles fetched");
+   * return ControllerResponse.ok(paginatedArticles, "Articles fetched");
    */
-  static ok<T>(data: T[] = [], message = "Success"): ControllerResponseType<T> {
-    return new ControllerResponse(true, message, data, HttpStatus.OK);
+  static ok<T>(
+    data: T = {} as T,
+    message = "Success",
+    meta: object = {},
+  ): ControllerResponseType<T> {
+    return new ControllerResponse(true, message, data, HttpStatus.OK, meta);
   }
 
   /**
@@ -76,18 +83,18 @@ export class ControllerResponse<T = unknown> implements ApiResponse<T> {
    * - The operation results in a new resource being created
    *
    * @template T - The type of data being returned
-   * @param {T[]} data - Array of created resources (default: empty array)
+   * @param {T} data - Created resource object (default: empty object)
    * @param {string} message - Success message (default: "Created")
    * @returns {ControllerResponseType<T>} Response object with 201 status
    * @example
    * // User registration
-   * return ControllerResponse.created([newUser], "User created successfully");
+   * return ControllerResponse.created(newUser, "User created successfully");
    * @example
    * // Creating a new article
-   * return ControllerResponse.created([article], "Article published");
+   * return ControllerResponse.created(article, "Article published");
    */
   static created<T>(
-    data: T[] = [],
+    data: T = {} as T,
     message = "Created",
   ): ControllerResponseType<T> {
     return new ControllerResponse(true, message, data, HttpStatus.CREATED);
@@ -115,7 +122,7 @@ export class ControllerResponse<T = unknown> implements ApiResponse<T> {
     return new ControllerResponse(
       true,
       "No content",
-      [],
+      {} as T,
       HttpStatus.NO_CONTENT,
     );
   }
@@ -145,7 +152,12 @@ export class ControllerResponse<T = unknown> implements ApiResponse<T> {
   static badRequest<T = never>(
     message = "Bad request",
   ): ControllerResponseType<T> {
-    return new ControllerResponse(false, message, [], HttpStatus.BAD_REQUEST);
+    return new ControllerResponse(
+      false,
+      message,
+      {} as T,
+      HttpStatus.BAD_REQUEST,
+    );
   }
 
   /**
@@ -171,7 +183,12 @@ export class ControllerResponse<T = unknown> implements ApiResponse<T> {
   static unauthorized<T = never>(
     message = "Unauthorized",
   ): ControllerResponseType<T> {
-    return new ControllerResponse(false, message, [], HttpStatus.UNAUTHORIZED);
+    return new ControllerResponse(
+      false,
+      message,
+      {} as T,
+      HttpStatus.UNAUTHORIZED,
+    );
   }
 
   /**
@@ -197,7 +214,12 @@ export class ControllerResponse<T = unknown> implements ApiResponse<T> {
   static forbidden<T = never>(
     message = "Forbidden",
   ): ControllerResponseType<T> {
-    return new ControllerResponse(false, message, [], HttpStatus.FORBIDDEN);
+    return new ControllerResponse(
+      false,
+      message,
+      {} as T,
+      HttpStatus.FORBIDDEN,
+    );
   }
 
   /**
@@ -220,8 +242,17 @@ export class ControllerResponse<T = unknown> implements ApiResponse<T> {
    * // Article doesn't exist
    * return ControllerResponse.notFound("Article with ID 123 does not exist");
    */
-  static notFound<T = never>(message = "Not found"): ControllerResponseType<T> {
-    return new ControllerResponse(false, message, [], HttpStatus.NOT_FOUND);
+  static notFound<T = never>(
+    message = "Not found",
+    meta = {},
+  ): ControllerResponseType<T> {
+    return new ControllerResponse(
+      false,
+      message,
+      {} as T,
+      HttpStatus.NOT_FOUND,
+      meta,
+    );
   }
 
   /**
@@ -245,7 +276,7 @@ export class ControllerResponse<T = unknown> implements ApiResponse<T> {
    * return ControllerResponse.conflict("Username 'john_doe' is already in use");
    */
   static conflict<T = never>(message = "Conflict"): ControllerResponseType<T> {
-    return new ControllerResponse(false, message, [], HttpStatus.CONFLICT);
+    return new ControllerResponse(false, message, {} as T, HttpStatus.CONFLICT);
   }
 
   /**
@@ -275,7 +306,7 @@ export class ControllerResponse<T = unknown> implements ApiResponse<T> {
     return new ControllerResponse(
       false,
       message,
-      [],
+      {} as T,
       HttpStatus.INTERNAL_SERVER_ERROR,
     );
   }

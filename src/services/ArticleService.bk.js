@@ -1,6 +1,6 @@
 // backend/src/services/ArticleService.js
 import { db } from "../config/database.js";
-import { ArticleController } from "../controllers/articleController.js";
+import { ArticleController } from "../controllers/ArticleController.js";
 import { Article } from "../models/Article.js";
 import { User } from "../models/User.js";
 import { equal, isValid, merge } from "../utils/validator.ts";

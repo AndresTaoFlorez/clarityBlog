@@ -46,7 +46,7 @@ export class AuthService {
       }
 
       const { data } = await UserService.create(userData);
-      const userCreated = data[0];
+      const userCreated = data;
 
       const transformedData = this.translateToGenerateToken(userCreated);
       const token = this.generateToken(transformedData);
@@ -76,7 +76,7 @@ export class AuthService {
     try {
       const { email, password } = credentials;
       const userResponse = await UserService.findByEmail(email);
-      const user = userResponse.data[0];
+      const user = userResponse.data;
 
       if (!userResponse.success) {
         return {

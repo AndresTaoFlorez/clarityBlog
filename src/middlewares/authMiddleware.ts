@@ -54,7 +54,7 @@ export const authenticate = async (
       });
     }
 
-    const dbUser = userResponse.data[0];
+    const dbUser = userResponse.data;
 
     // 5. Check if token version matches
     if (dbUser.tokenVersion !== decoded.tokenVersion) {

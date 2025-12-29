@@ -187,6 +187,33 @@ export interface Database {
           categories?: any; // JSON array of category IDs
         };
       };
+      articles_all_with_details: {
+        Row: {
+          id: string;
+          title: string;
+          description: string | null;
+          user_id: string;
+          created_at: string | null;
+          updated_at: string | null;
+          deleted_at: string | null;
+          author_name: string;
+          author_avatar: string;
+          author_email: string;
+          categories: any; // JSON array
+        };
+        Insert: {
+          title: string;
+          description?: string | null;
+          user_id: string;
+          categories?: any; // JSON array of category IDs
+        };
+        Update: {
+          title?: string;
+          description?: string | null;
+          categories?: any; // JSON array of category IDs
+          deleted_at?: string | null; // Allow updating deleted_at for restore
+        };
+      };
       users_active: {
         Row: {
           id: string;
@@ -199,6 +226,19 @@ export interface Database {
           created_at: string;
           updated_at: string;
         };
+      };
+      articles_deletable: {
+        Row: {
+          id: string;
+          title: string;
+          description: string | null;
+          user_id: string;
+          created_at: string | null;
+          updated_at: string | null;
+          deleted_at: string | null;
+        };
+        Insert: Database["public"]["Tables"]["articles"]["Insert"];
+        Update: Database["public"]["Tables"]["articles"]["Update"];
       };
     };
     Functions: {
@@ -232,6 +272,16 @@ export interface Database {
       hard_delete_article: {
         Args: {
           p_article_id: string;
+        };
+        Returns: {
+          success: boolean;
+          article_id: string;
+          message: string;
+        };
+      };
+      hard_delete_many_articles: {
+        Args: {
+          p_article_ids: string[];
         };
         Returns: {
           success: boolean;
