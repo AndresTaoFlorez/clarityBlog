@@ -1,9 +1,10 @@
 // backend/src/routes/categoryRoutes.js
 import express from "express";
-import { CategoryController } from "../controllers/categoryController.js";
-import { authenticate } from "../middlewares/authMiddleware.ts";
+import type { Router } from "express";
+import { CategoryController } from "../controllers/CategoryController";
+import { authenticate, authorizeAdmin } from "../middlewares/authMiddleware";
 
-const router = express.Router();
+const router: Router = express.Router();
 
 /**
  * @route   GET /api/categories/search
@@ -11,7 +12,7 @@ const router = express.Router();
  * @query   {string} q - Search term (required)
  * @query   {number} [page=1] - Page number
  * @query   {number} [limit=10] - Items per page
- * @access  Public
+ * @access  public
  */
 router.get("/search", CategoryController.searchCategories);
 
@@ -20,7 +21,7 @@ router.get("/search", CategoryController.searchCategories);
  * @desc    Get all categories with pagination
  * @query   {number} [page=1] - Page number
  * @query   {number} [limit=10] - Items per page
- * @access  Public
+ * @access  public
  */
 router.get("/", CategoryController.getAllCategories);
 
@@ -29,18 +30,26 @@ router.get("/", CategoryController.getAllCategories);
  * @desc    Get all categories with pagination
  * @query   {number} [page=1] - Page number
  * @query   {number} [limit=10] - Items per page
- * @access  Public
+ * @access  public
  */
-router.get("/articleId/:articleId", CategoryController.getAllCategoriesByArticleId);
+router.get(
+  "/articleId/:articleId",
+  CategoryController.getAllCategoriesByArticleId,
+);
 
 /**
  * @route   POST /api/categories
  * @desc    Create a new category
  * @body    {string} value - Category value (slug)
  * @body    {string} label - Category display name
- * @access  Private (Admin only)
+ * @access  private (Admin only)
  */
-router.post("/", authenticate, CategoryController.createCategory);
+router.post(
+  "/",
+  authenticate,
+  authorizeAdmin,
+  CategoryController.createCategory,
+);
 
 /**
  * @route   PUT /api/categories/:categoryId
@@ -48,7 +57,7 @@ router.post("/", authenticate, CategoryController.createCategory);
  * @param   {string} categoryId - Category UUID
  * @body    {string} [value] - New category value
  * @body    {string} [label] - New category label
- * @access  Private (Admin only)
+ * @access  private (Admin only)
  */
 router.put("/:categoryId", authenticate, CategoryController.updateCategory);
 
@@ -56,7 +65,7 @@ router.put("/:categoryId", authenticate, CategoryController.updateCategory);
  * @route   DELETE /api/categories/:categoryId
  * @desc    Delete a category
  * @param   {string} categoryId - Category UUID
- * @access  Private (Admin only)
+ * @access  private (Admin only)
  */
 router.delete("/:categoryId", authenticate, CategoryController.deleteCategory);
 

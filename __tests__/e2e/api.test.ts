@@ -13,11 +13,3 @@ describe("API E2E Tests", () => {
     expect(response.body).toHaveProperty("message");
   });
 });
-
-// describe('API E2E Tests', () => {
-//   test('GET /health should return 200', async () => {
-//     const response = await request(app).get('/health');
-//     expect(response.status).toBe(200);
-//     expect(response.body).toHaveProperty('message');
-//   });
-// });

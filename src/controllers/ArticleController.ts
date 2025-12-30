@@ -2,16 +2,14 @@
 import type { Request, Response, NextFunction } from "express";
 import { ControllerResponse } from "../utils/ControllerResponse";
 import { ArticleService } from "../services/ArticleService";
-import { isValid, merge, equal, checkUuids } from "../utils/validator";
+import {
+  isValid,
+  merge,
+  equal,
+  checkUuids,
+  parseIntSafely,
+} from "../utils/validator";
 import type { UUID } from "crypto";
-
-/**
- * Safely parses an integer from query params with default fallback
- */
-function parseIntSafely(value: any, defaultValue: number): number {
-  const parsed = parseInt(value, 10);
-  return isNaN(parsed) || parsed < 1 ? defaultValue : parsed;
-}
 
 export class ArticleController {
   static async create(

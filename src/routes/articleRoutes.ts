@@ -62,14 +62,24 @@ router.get("/userId/:userId", ArticleController.getByUserId);
  * @desc    Update article by Id
  * @access   private (only author or admin user role)
  */
-router.put("/:articleId", authenticate, ArticleController.update);
+router.put(
+  "/:articleId",
+  authenticate,
+  authorizeAdmin,
+  ArticleController.update,
+);
 
 /**
  * @route   DELETE /api/articles/:id
  * @desc    Hard delete article
  * @access   private (only author or admin user)
  */
-router.delete("/hard/:articleId?", authenticate, ArticleController.hardDelete);
+router.delete(
+  "/hard/:articleId?",
+  authenticate,
+  authorizeAdmin,
+  ArticleController.hardDelete,
+);
 
 /**
  * @route   DELETE /api/articles/:id
